@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../main.dart'; // для currentBackground
-import '../data/questions_database.dart'; // <-- импортируем вопросы
+import '../data/game_state.dart';
+import '../data/chemistry_questions.dart';
+import '../data/math_questions.dart';
+import '../data/english_questions.dart';
 
 class QuizScreen extends StatefulWidget {
   final int level;
@@ -19,10 +23,29 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
-    question = chemistryQuestions[widget.level % chemistryQuestions.length];
+
+    // Получаем текущий предмет из GameState
+    final subject = Provider.of<GameState>(context, listen: false).currentSubject;
+
+    // Выбираем нужный массив вопросов
+    final questions = _getQuestionsForSubject(subject);
+
+    // Берём вопрос по номеру уровня (циклически)
+    question = questions[(widget.level - 1) % questions.length];
 
     backgroundColor = _colorForId(currentBackground.value);
     currentBackground.addListener(_backgroundListener);
+  }
+
+  List<Map<String, dynamic>> _getQuestionsForSubject(Subject subject) {
+    switch (subject) {
+      case Subject.chemistry:
+        return chemistryQuestions;
+      case Subject.math:
+        return mathQuestions;
+      case Subject.english:
+        return englishQuestions;
+    }
   }
 
   @override

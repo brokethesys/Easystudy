@@ -70,7 +70,10 @@ class _MapScreenState extends State<MapScreen>
       final c = centers[i];
       final levelNumber = i + 1;
 
-      final isCompleted = state.completedLevels.contains(levelNumber);
+      // ✅ Проверяем выполнение уровня через Set<int> для текущего предмета
+      final isCompleted =
+          state.completedLevels[state.currentSubject]?.contains(levelNumber) ??
+          false;
       final isCurrent = levelNumber == state.currentLevel;
       final isLocked = levelNumber > state.currentLevel;
 

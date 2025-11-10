@@ -11,7 +11,7 @@ class SettingsPanel {
 
     bool showSettings = false;
     bool showSubjects = false;
-    String currentSubject = "Химия";
+    Subject currentSubject = state.currentSubject;
 
     showGeneralDialog(
       context: context,
@@ -51,7 +51,7 @@ class SettingsPanel {
                             showSubjects = !showSubjects;
                           }),
                           child: _gradientButton(
-                            label: currentSubject,
+                            label: _subjectName(currentSubject),
                             icon: Icons.school,
                             expanded: showSubjects,
                             colors: const [Colors.cyan, Colors.blue],
@@ -71,16 +71,16 @@ class SettingsPanel {
                               child: Column(
                                 children: [
                                   for (var subj in [
-                                    "Химия",
-                                    "Английский язык",
-                                    "Математика",
+                                    Subject.chemistry,
+                                    Subject.english,
+                                    Subject.math,
                                   ])
                                     GestureDetector(
                                       onTap: () {
                                         setLocalState(() {
                                           currentSubject = subj;
                                         });
-                                        // TODO: смена предмета
+                                        state.switchSubject(subj);
                                       },
                                       child: Container(
                                         margin: const EdgeInsets.only(top: 6),
@@ -111,7 +111,8 @@ class SettingsPanel {
                                           ],
                                         ),
                                         child: Center(
-                                          child: _outlinedText(subj, 16),
+                                          child: _outlinedText(
+                                              _subjectName(subj), 16),
                                         ),
                                       ),
                                     ),
@@ -157,7 +158,8 @@ class SettingsPanel {
                                     value: localSound,
                                     onChanged: (v) {
                                       setLocalState(() => localSound = v);
-                                      state.toggleSetting('sound', v);
+                                      state.soundEnabled = v;
+                                      state.save();
                                     },
                                   ),
                                   const SizedBox(height: 10),
@@ -167,7 +169,8 @@ class SettingsPanel {
                                     value: localMusic,
                                     onChanged: (v) {
                                       setLocalState(() => localMusic = v);
-                                      state.toggleSetting('music', v);
+                                      state.musicEnabled = v;
+                                      state.save();
                                     },
                                   ),
                                   const SizedBox(height: 10),
@@ -177,7 +180,8 @@ class SettingsPanel {
                                     value: localVibration,
                                     onChanged: (v) {
                                       setLocalState(() => localVibration = v);
-                                      state.toggleSetting('vibration', v);
+                                      state.vibrationEnabled = v;
+                                      state.save();
                                     },
                                   ),
                                   const SizedBox(height: 12),
@@ -249,6 +253,18 @@ class SettingsPanel {
         );
       },
     );
+  }
+
+  // === Вспомогательные функции ===
+  static String _subjectName(Subject subj) {
+    switch (subj) {
+      case Subject.chemistry:
+        return "Химия";
+      case Subject.math:
+        return "Математика";
+      case Subject.english:
+        return "Английский язык";
+    }
   }
 
   // === Элементы интерфейса ===
