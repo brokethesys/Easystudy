@@ -2,40 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
 
-// === Глобальная функция для текста с обводкой ===
-Widget outlinedText(
-  String text, {
-  Color fillColor = Colors.white,
-  double fontSize = 16,
-  FontWeight fontWeight = FontWeight.bold,
-}) {
-  return Stack(
-    children: [
-      Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'ClashRoyale',
-          fontSize: fontSize,
-          fontWeight: fontWeight,
-          foreground: Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
-            ..color = Colors.black,
-        ),
-      ),
-      Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'ClashRoyale',
-          fontSize: fontSize,
-          fontWeight: fontWeight,
-          color: fillColor,
-        ),
-      ),
-    ],
-  );
-}
-
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
 
@@ -94,29 +60,27 @@ class AchievementsScreen extends StatelessWidget {
     }
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color.fromARGB(255, 50, 70, 90),
-            Color.fromARGB(255, 25, 35, 50),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
+      color: const Color(0xFF131F24), // ← статичный фон
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             children: [
               const SizedBox(height: 10),
-              outlinedText(
+
+              // === Заголовок ===
+              const Text(
                 "Достижения",
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                fillColor: Colors.white,
+                style: TextStyle(
+                  fontFamily: 'ClashRoyale',
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
+
               const SizedBox(height: 20),
+
               Expanded(
                 child: ListView.builder(
                   itemCount: achievements.length,
@@ -133,15 +97,12 @@ class AchievementsScreen extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color.fromARGB(255, 70, 90, 110),
-                            Color.fromARGB(255, 50, 65, 85),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: const Color(0xFF131F24), // ← статичный фон
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF37464F), // ← обводка ячейки
+                          width: 2,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.3),
@@ -153,13 +114,18 @@ class AchievementsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          outlinedText(
+                          Text(
                             ach["title"] as String,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            fillColor: Colors.white,
+                            style: const TextStyle(
+                              fontFamily: 'ClashRoyale',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
                           ),
+
                           const SizedBox(height: 10),
+
                           Row(
                             children: [
                               Expanded(
@@ -172,7 +138,9 @@ class AchievementsScreen extends StatelessWidget {
                                       Container(
                                         height: 28,
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.15),
+                                          color: const Color(
+                                            0xFF37464F,
+                                          ), // ← статичный тёмно-серо-синий фон
                                           borderRadius: BorderRadius.circular(
                                             14,
                                           ),
@@ -187,60 +155,35 @@ class AchievementsScreen extends StatelessWidget {
                                             decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(14),
-                                              gradient: LinearGradient(
-                                                colors: completed
-                                                    ? [
-                                                        Colors.amberAccent,
-                                                        Colors.orangeAccent,
-                                                      ]
-                                                    : [
-                                                        const Color.fromARGB(
-                                                          255,
-                                                          90,
-                                                          140,
-                                                          180,
-                                                        ),
-                                                        const Color.fromARGB(
-                                                          255,
-                                                          70,
-                                                          120,
-                                                          160,
-                                                        ),
-                                                      ],
-                                              ),
+                                              color: const Color(0xFF58A700), // всегда зелёный
                                             ),
                                           );
                                         },
                                       ),
                                       Positioned.fill(
                                         child: Center(
-                                          child: completed && !collected
-                                              ? outlinedText(
-                                                  "Получить награду",
-                                                  fontSize: 13,
-                                                  fillColor: Colors.white,
-                                                  fontWeight: FontWeight.normal,
-                                                )
-                                              : collected
-                                              ? outlinedText(
-                                                  "Награда получена",
-                                                  fontSize: 13,
-                                                  fillColor: Colors.white,
-                                                  fontWeight: FontWeight.normal,
-                                                )
-                                              : outlinedText(
-                                                  "$progress/$goal",
-                                                  fontSize: 13,
-                                                  fillColor: Colors.white,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
+                                          child: Text(
+                                            collected
+                                                ? "Награда получена"
+                                                : completed
+                                                ? "Получить награду"
+                                                : "$progress/$goal",
+                                            style: const TextStyle(
+                                              fontFamily: 'ClashRoyale',
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
+
                               const SizedBox(width: 10),
+
                               Row(
                                 children: [
                                   SizedBox(
@@ -252,11 +195,14 @@ class AchievementsScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  outlinedText(
+                                  Text(
                                     "+$reward",
-                                    fontSize: 16,
-                                    fillColor: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                    style: const TextStyle(
+                                      fontFamily: 'ClashRoyale',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -290,10 +236,12 @@ class _AnimatedCoinPopupState extends State<_AnimatedCoinPopup>
     vsync: this,
     duration: const Duration(milliseconds: 1500),
   )..forward();
+
   late final Animation<Offset> _offset = Tween(
     begin: const Offset(0, 1.5),
     end: const Offset(0, -1.5),
   ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
   late final Animation<double> _opacity = Tween(
     begin: 1.0,
     end: 0.0,
@@ -327,11 +275,14 @@ class _AnimatedCoinPopupState extends State<_AnimatedCoinPopup>
                 child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
               ),
               const SizedBox(width: 6),
-              outlinedText(
+              Text(
                 "+${widget.reward}",
-                fontSize: 20,
-                fillColor: Colors.white,
-                fontWeight: FontWeight.bold,
+                style: const TextStyle(
+                  fontFamily: 'ClashRoyale',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),

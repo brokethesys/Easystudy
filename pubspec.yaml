@@ -61,7 +61,7 @@ flutter:
   fonts:
     - family: ClashRoyale
       fonts:
-        - asset: assets/fonts/Supercell-Magic.ttf
+        - asset: assets/fonts/Rubik-Medium.ttf
   # To add assets to your application, add an assets section, like this:
   assets:
      - assets/images/bg_map2.png

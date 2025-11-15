@@ -134,55 +134,44 @@ class _MapScreenState extends State<MapScreen>
               ),
               child: Stack(
                 children: [
+                  // === Заполненная часть ===
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final progressWidth =
                           constraints.maxWidth * xpRatio.clamp(0.0, 1.0);
+
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 600),
                         width: progressWidth,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color.fromARGB(255, 0, 81, 103),
-                              Color.fromARGB(255, 0, 141, 184),
-                              Color.fromARGB(255, 2, 194, 227),
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
+                          color: const Color(
+                            0xFF49C0F7,
+                          ), // 🔵 голубой как в задании
                           borderRadius: BorderRadius.circular(10),
                         ),
                       );
                     },
                   ),
+
+                  // === Текст XP ===
                   Center(
-                    child: Stack(
-                      children: [
-                        Text(
-                          '${state.currentXP} / ${state.xpForNextLevel}',
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            foreground: Paint()
-                              ..style = PaintingStyle.stroke
-                              ..strokeWidth = 1.5
-                              ..color = Colors.black,
-                          ),
-                        ),
-                        Text(
-                          '${state.currentXP} / ${state.xpForNextLevel}',
-                          style: const TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      '${state.currentXP} / ${state.xpForNextLevel}',
+                      style: const TextStyle(
+                        fontFamily: 'ClashRoyale',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color.fromARGB(
+                          255,
+                          248,
+                          248,
+                          248,
+                        ), // 🔥 Новый цвет текста
+                      ),
                     ),
                   ),
+
+                  // === Блок уровня (слева) ===
                   Positioned(
                     left: 0,
                     top: 0,
@@ -200,9 +189,15 @@ class _MapScreenState extends State<MapScreen>
                         child: Text(
                           '${state.playerLevel}',
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
+                            fontFamily: 'ClashRoyale',
                             fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color.fromARGB(
+                              255,
+                              248,
+                              248,
+                              248,
+                            ), // 🔥 Новый цвет текста
                           ),
                         ),
                       ),

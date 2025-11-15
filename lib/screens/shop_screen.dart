@@ -29,11 +29,12 @@ class ShopScreen extends StatelessWidget {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF001B33),
+      backgroundColor: const Color(0xFF131F24), // 🔹 Статичный фон
       appBar: AppBar(
-        backgroundColor: const Color(0xFF00264D),
+        backgroundColor: const Color(0xFF067D06),
         centerTitle: true,
         title: outlinedText('Магазин фонов', fontSize: 20),
+        elevation: 0,
         actions: [
           Row(
             children: [
@@ -43,7 +44,11 @@ class ShopScreen extends StatelessWidget {
                 child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
               ),
               const SizedBox(width: 4),
-              outlinedText('${state.coins}', fontSize: 16, fillColor: Colors.white),
+              outlinedText(
+                '${state.coins}',
+                fontSize: 16,
+                fillColor: Colors.white,
+              ),
               const SizedBox(width: 16),
             ],
           ),
@@ -63,8 +68,12 @@ class ShopScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(BuildContext context, String title,
-      List<Map<String, dynamic>> items, bool ownedSection) {
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<Map<String, dynamic>> items,
+    bool ownedSection,
+  ) {
     final state = context.read<GameState>();
 
     return Column(
@@ -72,9 +81,7 @@ class ShopScreen extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Center(
-            child: outlinedText(title, fontSize: 20),
-          ),
+          child: Center(child: outlinedText(title, fontSize: 20)),
         ),
         GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
@@ -106,15 +113,20 @@ class ShopScreen extends StatelessWidget {
                     currentBackground.value = bg['id'];
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: outlinedText('Фон "${bg['id']}" успешно куплен!',
-                            fontSize: 14),
+                        content: outlinedText(
+                          'Фон "${bg['id']}" успешно куплен!',
+                          fontSize: 14,
+                        ),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: outlinedText('Недостаточно монет 💰', fontSize: 14),
+                        content: outlinedText(
+                          'Недостаточно монет 💰',
+                          fontSize: 14,
+                        ),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -123,13 +135,11 @@ class ShopScreen extends StatelessWidget {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: bg['color'],
+                  color: bg['color'], // 🔹 Используем цвет фона из массива
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isSelected
-                        ? Colors.amberAccent
-                        : Colors.white.withOpacity(0.3),
-                    width: isSelected ? 3 : 1.5,
+                    color: const Color(0xFF37464F), // 🔹 Обводка
+                    width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -154,7 +164,9 @@ class ShopScreen extends StatelessWidget {
                       bottom: 0,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 6, horizontal: 6),
+                          vertical: 6,
+                          horizontal: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.4),
                           borderRadius: const BorderRadius.only(
@@ -166,17 +178,22 @@ class ShopScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             if (isOwned)
-                              outlinedText(isSelected ? 'Выбран' : 'Доступен',
-                                  fontSize: 12, fillColor: Colors.white70)
+                              outlinedText(
+                                isSelected ? 'Выбран' : 'Доступен',
+                                fontSize: 12,
+                                fillColor: Colors.white70,
+                              )
                             else
                               Column(
                                 children: [
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      outlinedText('${state.coins}/${bg['price']}',
-                                          fontSize: 12,
-                                          fillColor: Colors.amberAccent),
+                                      outlinedText(
+                                        '${state.coins}/${bg['price']}',
+                                        fontSize: 12,
+                                        fillColor: const Color.fromARGB(255, 255, 255, 255),
+                                      ), // Зеленый прогресс
                                       const SizedBox(width: 4),
                                       SizedBox(
                                         width: 16,
@@ -193,9 +210,12 @@ class ShopScreen extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(4),
                                     child: LinearProgressIndicator(
                                       value: progress,
-                                      backgroundColor:
-                                          Colors.white.withOpacity(0.2),
-                                      color: Colors.amberAccent,
+                                      backgroundColor: const Color(
+                                        0xFF37464F,
+                                      ), // Пустая часть
+                                      color: const Color(
+                                        0xFF58A700,
+                                      ), // Заполненная часть
                                       minHeight: 6,
                                     ),
                                   ),
@@ -215,11 +235,12 @@ class ShopScreen extends StatelessWidget {
     );
   }
 
-  // === Вспомогательный виджет текста с обводкой ===
-  Widget outlinedText(String text,
-      {Color fillColor = Colors.white,
-      double fontSize = 16,
-      FontWeight fontWeight = FontWeight.bold}) {
+  Widget outlinedText(
+    String text, {
+    Color fillColor = Colors.white,
+    double fontSize = 16,
+    FontWeight fontWeight = FontWeight.bold,
+  }) {
     return Stack(
       children: [
         Text(

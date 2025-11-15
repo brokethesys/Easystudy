@@ -4,6 +4,7 @@ import '../data/game_state.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
 import 'achievements_screen.dart';
+import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gameState = context.watch<GameState>();
+    context.watch<GameState>();
 
     const icons = [Icons.shop, Icons.map_rounded, Icons.workspace_premium];
     const labels = ['Магазин', 'Уровни', 'Достижения'];
@@ -64,15 +65,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 78,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 74, 87, 110),
-            Color.fromARGB(255, 59, 70, 88),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        color: const Color(0xFF131F24), // фон как у достижений
+        border: Border(
+          top: BorderSide(
+            color: const Color(0xFF37464F),
+            width: 1.5,
+          ), // обводка сверху
         ),
-        border: const Border(top: BorderSide(color: Colors.black54, width: 1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
@@ -81,116 +80,52 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          AnimatedAlign(
-            alignment: Alignment((_indicatorPosition - 1) / 1, 0),
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            child: FractionallySizedBox(
-              widthFactor: 1 / 3,
-              heightFactor: 1,
+      child: Row(
+        children: List.generate(3, (i) {
+          final bool active = _currentPage == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _onBottomNavTap(i);
+              },
               child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 74, 110, 143),
-                      Color.fromARGB(255, 83, 124, 160),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                margin: const EdgeInsets.all(
+                  8,
+                ), // отступ, чтобы выглядел квадратом
+                decoration: BoxDecoration(
+                  color: const Color(0xFF131F24), // фон квадрата
+                  border: active
+                      ? Border.all(
+                          color: const Color(
+                            0xFF3C85A7,
+                          ), // рамка текущего экрана
+                          width: 2,
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    icons[i],
+                    size: 32,
+                    color: active ? Colors.white : Colors.white70,
+                    shadows: active
+                        ? [
+                            const Shadow(
+                              color: Colors.black,
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ]
+                        : [],
                   ),
                 ),
               ),
             ),
-          ),
-          Row(
-            children: List.generate(3, (i) {
-              final bool active = _currentPage == i;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => _onBottomNavTap(i),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: i != 2
-                          ? const Border(
-                              right: BorderSide(
-                                color: Color.fromARGB(255, 91, 102, 123),
-                                width: 2,
-                              ),
-                            )
-                          : null,
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            icons[i],
-                            size: active ? 34 : 30,
-                            color: active ? Colors.white : Colors.white70,
-                            shadows: active
-                                ? [
-                                    const Shadow(
-                                      color: Colors.black,
-                                      blurRadius: 6,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          const SizedBox(height: 4),
-                          outlinedText(
-                            labels[i],
-                            fontSize: 13,
-                            fillColor: active ? Colors.white : Colors.white70,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
+          );
+        }),
       ),
-    );
-  }
-
-  // === Вспомогательный виджет текста с обводкой ===
-  Widget outlinedText(
-    String text, {
-    Color fillColor = Colors.white,
-    double fontSize = 16,
-    FontWeight fontWeight = FontWeight.bold,
-  }) {
-    return Stack(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'ClashRoyale',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.5
-              ..color = Colors.black,
-          ),
-        ),
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'ClashRoyale',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            color: fillColor,
-          ),
-        ),
-      ],
     );
   }
 }
