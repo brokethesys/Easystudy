@@ -130,167 +130,176 @@ class _MapScreenState extends State<MapScreen>
 
   // === Верхняя панель с круговым индикатором уровня + выбор предмета ===
   Widget _topHUD(BuildContext context, GameState state) {
-    final double widgetHeight = 48.0; // высота круга и виджета предметов
-    final Color switchColor = const Color(0xFF49C0F7);
-    final Color backgroundColor = const Color(0xFF131F24);
+  final double widgetHeight = 48.0; // высота круга и виджета предметов
+  final Color switchColor = const Color(0xFF49C0F7);
+  final Color backgroundColor = const Color(0xFF131F24);
 
-    return Positioned(
-      top: 40,
-      left: 16,
-      right: 16,
-      child: Row(
-        children: [
-          // Круг с уровнем
-          CustomPaint(
-            painter: _LevelCirclePainter(
-              progress: _xpAnimation.value,
-              circleColor: switchColor,
-              backgroundColor: const Color(0xFF073E57),
-            ),
-            child: SizedBox(
-              width: widgetHeight,
-              height: widgetHeight,
-              child: Center(
-                child: Text(
-                  '${state.playerLevel}',
-                  style: const TextStyle(
-                    fontFamily: 'ClashRoyale',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
+  return Positioned(
+    top: 40,
+    left: 16,
+    right: 16,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Круг с уровнем
+        CustomPaint(
+          painter: _LevelCirclePainter(
+            progress: _xpAnimation.value,
+            circleColor: switchColor,
+            backgroundColor: const Color(0xFF073E57),
           ),
-          const SizedBox(width: 8),
-
-          // Виджет выбора предмета
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      showSubjectPicker = !showSubjectPicker;
-                    });
-                  },
-                  child: Container(
-                    height: widgetHeight,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: switchColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _subjectName(currentSubject),
-                      style: TextStyle(
-                        fontFamily: 'ClashRoyale',
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: backgroundColor,
-                      ),
-                    ),
-                  ),
-                ),
-                if (showSubjectPicker)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: switchColor, width: 2),
-                    ),
-                    child: Column(
-                      children: [
-                        for (var subj in Subject.values)
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                currentSubject = subj;
-                                showSubjectPicker = false;
-                              });
-                              state.switchSubject(subj);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6,
-                                horizontal: 8,
-                              ),
-                              child: Text(
-                                _subjectName(subj),
-                                style: TextStyle(
-                                  fontFamily: 'ClashRoyale',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: switchColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Монеты и баланс
-          Row(
-            children: [
-              SizedBox(
-                width: widgetHeight,
-                height: widgetHeight,
-                child: Image.asset('assets/images/coin.png'),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                state.coins.toString(),
+          child: SizedBox(
+            width: widgetHeight,
+            height: widgetHeight,
+            child: Center(
+              child: Text(
+                '${state.playerLevel}',
                 style: const TextStyle(
                   fontFamily: 'ClashRoyale',
-                  fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Виджет выбора предмета
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    showSubjectPicker = !showSubjectPicker;
+                  });
+                },
+                child: Container(
+                  height: widgetHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: switchColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _subjectName(currentSubject),
+                    style: TextStyle(
+                      fontFamily: 'ClashRoyale',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: backgroundColor,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Сделаем контейнер фиксированной высоты,
+              // а список просто скрываем/показываем без смещения остальных элементов
+              Visibility(
+                visible: showSubjectPicker,
+                maintainState: true,
+                maintainAnimation: true,
+                maintainSize: true,
+                child: Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: switchColor, width: 2),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var subj in Subject.values)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              currentSubject = subj;
+                              showSubjectPicker = false;
+                            });
+                            state.switchSubject(subj);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                              horizontal: 8,
+                            ),
+                            child: Text(
+                              _subjectName(subj),
+                              style: TextStyle(
+                                fontFamily: 'ClashRoyale',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: switchColor,),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
+        ),
+        const SizedBox(width: 12),
 
-          const SizedBox(width: 12),
-
-          // Кнопка настроек
-          SizedBox(
-            width: widgetHeight,
-            height: widgetHeight,
-            child: GestureDetector(
-              onTap: () => SettingsPanel.open(context),
-              child: Icon(
-                Icons.settings,
-                color: Colors.orangeAccent,
-                size: widgetHeight * 0.6,
+        // Монеты и баланс
+        Row(
+          children: [
+            SizedBox(
+              width: widgetHeight,
+              height: widgetHeight,
+              child: Image.asset('assets/images/coin.png'),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              state.coins.toString(),
+              style: const TextStyle(
+                fontFamily: 'ClashRoyale',
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.amber,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
 
-  String _subjectName(Subject subj) {
-    switch (subj) {
-      case Subject.chemistry:
-        return "ХИМИЯ";
-      case Subject.math:
-        return "МАТЕМАТИКА";
-      case Subject.english:
-        return "АНГЛИЙСКИЙ ЯЗЫК";
-    }
+        const SizedBox(width: 12),
+
+        // Кнопка настроек
+        SizedBox(
+          width: widgetHeight,
+          height: widgetHeight,
+          child: GestureDetector(
+            onTap: () => SettingsPanel.open(context),
+            child: Icon(
+              Icons.settings,
+              color: Colors.orangeAccent,
+              size: widgetHeight * 0.6,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _subjectName(Subject subj) {
+  switch (subj) {
+    case Subject.chemistry:
+      return "ХИМИЯ";
+    case Subject.math:
+      return "МАТЕМАТИКА";
+    case Subject.english:
+      return "АНГЛИЙСКИЙ ЯЗЫК";
   }
+}
 
   @override
   Widget build(BuildContext context) {
