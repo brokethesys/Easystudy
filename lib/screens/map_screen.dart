@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
-import '../widgets/level_node.dart';
 import 'quiz_screen.dart';
 import '../widgets/settings_panel.dart';
 
@@ -16,15 +15,24 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _xpController;
-
+  late Animation<double> _xpAnimation;
   late final ScrollController _scrollController;
+
+  double _previousXpRatio = 0.0;
+  bool showSubjectPicker = false;
+  Subject currentSubject = Subject.math;
 
   @override
   void initState() {
     super.initState();
+
     _xpController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
+    );
+
+    _xpAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _xpController, curve: Curves.easeOutCubic),
     );
 
     _scrollController = ScrollController();
@@ -37,27 +45,43 @@ class _MapScreenState extends State<MapScreen>
     super.dispose();
   }
 
-  // === Построение уровней ===
-  List<Offset> _calculateLevelCenters(Size screenSize) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = context.watch<GameState>();
+    currentSubject = state.currentSubject;
+    _updateXpAnimation(state.currentXP / state.xpForNextLevel);
+  }
+
+  void _updateXpAnimation(double newRatio) {
+    _xpAnimation =
+        Tween<double>(begin: _previousXpRatio, end: newRatio).animate(
+          CurvedAnimation(parent: _xpController, curve: Curves.easeOutCubic),
+        )..addListener(() {
+          setState(() {});
+        });
+    _xpController.forward(from: 0);
+    _previousXpRatio = newRatio;
+  }
+
+  List<Offset> _calculateLevelCenters(Size screenSize, double mapHeight) {
     const int totalLevels = 25;
-    const double amplitude = 120;
-    const double period = 250;
-    const double centerX = 200;
+    const double stepY = 100.0;
+    const double widgetWidth = 75.0;
 
+    final double centerX = screenSize.width / 2;
+    const double bottomPadding = 100.0;
     final rand = Random(42);
-
-    // Высота карты = 200 пикселей на уровень + отступы сверху/снизу
-    final double topPadding = 200;
-    final double bottomPadding = 120;
-    final double stepY = 100.0;
-    final double mapHeight =
-        bottomPadding + stepY * (totalLevels - 1) + topPadding;
 
     return List.generate(totalLevels, (i) {
       final double y = mapHeight - bottomPadding - i * stepY;
-      final double x =
-          centerX + sin(y / period) * amplitude + rand.nextDouble() * 12 - 6;
-      return Offset(x, y);
+      double x;
+      if (i == 0) {
+        x = centerX;
+      } else {
+        x = centerX + sin(i * 1.3) * 60 + (rand.nextDouble() * 10 - 5);
+      }
+      return Offset(x - widgetWidth / 2, y);
     });
   }
 
@@ -66,11 +90,12 @@ class _MapScreenState extends State<MapScreen>
     GameState state,
     List<Offset> centers,
   ) {
+    const double nodeSize = 75.0;
+
     return List.generate(centers.length, (i) {
       final c = centers[i];
       final levelNumber = i + 1;
 
-      // ✅ Проверяем выполнение уровня через Set<int> для текущего предмета
       final isCompleted =
           state.completedLevels[state.currentSubject]?.contains(levelNumber) ??
           false;
@@ -78,15 +103,15 @@ class _MapScreenState extends State<MapScreen>
       final isLocked = levelNumber > state.currentLevel;
 
       return Positioned(
-        top: c.dy - 30,
-        left: c.dx - 30,
-        child: LevelNode(
-          levelNumber: levelNumber,
+        top: c.dy,
+        left: c.dx,
+        child: _LevelNode(
+          isCompleted: isCompleted,
           isCurrent: isCurrent,
           isLocked: isLocked,
-          isCompleted: isCompleted,
           onTap: () async {
             if (isLocked) return;
+
             final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => QuizScreen(level: levelNumber)),
@@ -95,6 +120,7 @@ class _MapScreenState extends State<MapScreen>
             if (result == true) {
               state.completeLevel(levelNumber);
               state.addXP(50);
+              _updateXpAnimation(state.currentXP / state.xpForNextLevel);
             }
           },
         ),
@@ -102,218 +128,197 @@ class _MapScreenState extends State<MapScreen>
     });
   }
 
-  // === HUD ===
+  // === Верхняя панель с круговым индикатором уровня + выбор предмета ===
   Widget _topHUD(BuildContext context, GameState state) {
-    const double barHeight = 46;
-    final xpRatio = state.currentXP / state.xpForNextLevel;
+    final double widgetHeight = 48.0; // высота круга и виджета предметов
+    final Color switchColor = const Color(0xFF49C0F7);
+    final Color backgroundColor = const Color(0xFF131F24);
 
     return Positioned(
-      top: 80,
+      top: 40,
       left: 16,
       right: 16,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Container(
-              height: barHeight,
-              decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 0, 33, 38),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.black.withOpacity(0.3),
-                  width: 2,
+          // Круг с уровнем
+          CustomPaint(
+            painter: _LevelCirclePainter(
+              progress: _xpAnimation.value,
+              circleColor: switchColor,
+              backgroundColor: const Color(0xFF073E57),
+            ),
+            child: SizedBox(
+              width: widgetHeight,
+              height: widgetHeight,
+              child: Center(
+                child: Text(
+                  '${state.playerLevel}',
+                  style: const TextStyle(
+                    fontFamily: 'ClashRoyale',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    offset: const Offset(0, 3),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // === Заполненная часть ===
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final progressWidth =
-                          constraints.maxWidth * xpRatio.clamp(0.0, 1.0);
-
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        width: progressWidth,
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF49C0F7,
-                          ), // 🔵 голубой как в задании
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // === Текст XP ===
-                  Center(
-                    child: Text(
-                      '${state.currentXP} / ${state.xpForNextLevel}',
-                      style: const TextStyle(
-                        fontFamily: 'ClashRoyale',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color.fromARGB(
-                          255,
-                          248,
-                          248,
-                          248,
-                        ), // 🔥 Новый цвет текста
-                      ),
-                    ),
-                  ),
-
-                  // === Блок уровня (слева) ===
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 52,
-                      decoration: const BoxDecoration(
-                        color: Color.fromARGB(255, 7, 102, 131),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          bottomLeft: Radius.circular(10),
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${state.playerLevel}',
-                          style: const TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Color.fromARGB(
-                              255,
-                              248,
-                              248,
-                              248,
-                            ), // 🔥 Новый цвет текста
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
-          const SizedBox(width: 14),
-          _squareButton(
-            imageAsset: 'assets/images/coin.png',
-            label: state.coins.toString(),
-            color: Colors.amber.shade700,
-            onTap: () {},
+          const SizedBox(width: 8),
+
+          // Виджет выбора предмета
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      showSubjectPicker = !showSubjectPicker;
+                    });
+                  },
+                  child: Container(
+                    height: widgetHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: switchColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _subjectName(currentSubject),
+                      style: TextStyle(
+                        fontFamily: 'ClashRoyale',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: backgroundColor,
+                      ),
+                    ),
+                  ),
+                ),
+                if (showSubjectPicker)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: switchColor, width: 2),
+                    ),
+                    child: Column(
+                      children: [
+                        for (var subj in Subject.values)
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                currentSubject = subj;
+                                showSubjectPicker = false;
+                              });
+                              state.switchSubject(subj);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6,
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                _subjectName(subj),
+                                style: TextStyle(
+                                  fontFamily: 'ClashRoyale',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: switchColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(width: 10),
-          _squareButton(
-            icon: Icons.menu,
-            color: const Color(0xFF333333),
-            onTap: () => SettingsPanel.open(context),
+
+          const SizedBox(width: 12),
+
+          // Монеты и баланс
+          Row(
+            children: [
+              SizedBox(
+                width: widgetHeight,
+                height: widgetHeight,
+                child: Image.asset('assets/images/coin.png'),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                state.coins.toString(),
+                style: const TextStyle(
+                  fontFamily: 'ClashRoyale',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.amber,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          // Кнопка настроек
+          SizedBox(
+            width: widgetHeight,
+            height: widgetHeight,
+            child: GestureDetector(
+              onTap: () => SettingsPanel.open(context),
+              child: Icon(
+                Icons.settings,
+                color: Colors.orangeAccent,
+                size: widgetHeight * 0.6,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _squareButton({
-    IconData? icon,
-    Color? color,
-    String? label,
-    String? imageAsset,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              spreadRadius: 1,
-              blurRadius: 6,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (icon != null)
-              Icon(icon, color: color ?? Colors.grey.shade800, size: 28),
-            if (imageAsset != null)
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: Image.asset(imageAsset, fit: BoxFit.cover),
-              ),
-            if (label != null)
-              Positioned(
-                bottom: 3,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade800,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+  String _subjectName(Subject subj) {
+    switch (subj) {
+      case Subject.chemistry:
+        return "ХИМИЯ";
+      case Subject.math:
+        return "МАТЕМАТИКА";
+      case Subject.english:
+        return "АНГЛИЙСКИЙ ЯЗЫК";
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
-    final screenSize = MediaQuery.of(context).size;
-    final levelCenters = _calculateLevelCenters(screenSize);
-    final levelNodes = _buildLevelNodes(context, state, levelCenters);
-    final mapHeight = (120 + 100 * 24 + 200)
-        .toDouble(); // bottomPadding + stepY*(totalLevels-1) + topPadding
+    final size = MediaQuery.of(context).size;
+
+    const int totalLevels = 25;
+    const double stepY = 100.0;
+    const double topPadding = 120.0;
+    const double bottomPadding = 100.0;
+
+    final double mapHeight =
+        topPadding + bottomPadding + (totalLevels - 1) * stepY;
+
+    final centers = _calculateLevelCenters(size, mapHeight);
+    final nodes = _buildLevelNodes(context, state, centers);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF001B33),
+      backgroundColor: const Color(0xFF131F24),
       body: Stack(
         children: [
           SingleChildScrollView(
             controller: _scrollController,
             reverse: true,
             physics: const ClampingScrollPhysics(),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/new_bg_map.jpg',
-                    fit: BoxFit.fitWidth,
-                    repeat: ImageRepeat.repeatY,
-                    alignment: Alignment.bottomCenter,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-                SizedBox(
-                  height: mapHeight,
-                  child: CustomPaint(
-                    painter: MapPathPainter(levelCenters),
-                    child: Stack(children: levelNodes),
-                  ),
-                ),
-              ],
+            child: SizedBox(
+              height: mapHeight,
+              child: Stack(children: nodes),
             ),
           ),
           _topHUD(context, state),
@@ -323,40 +328,83 @@ class _MapScreenState extends State<MapScreen>
   }
 }
 
-class MapPathPainter extends CustomPainter {
-  final List<Offset> centers;
+// Painter для кругового индикатора
+class _LevelCirclePainter extends CustomPainter {
+  final double progress;
+  final Color circleColor;
+  final Color backgroundColor;
 
-  MapPathPainter(this.centers);
+  _LevelCirclePainter({
+    required this.progress,
+    required this.circleColor,
+    required this.backgroundColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (centers.isEmpty) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
 
-    final path = Path()..moveTo(centers.first.dx, centers.first.dy);
-    for (int i = 1; i < centers.length; i++) {
-      final p1 = centers[i - 1];
-      final p2 = centers[i];
-      final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      path.quadraticBezierTo(mid.dx, mid.dy, p2.dx, p2.dy);
-    }
-
-    final shadow = Paint()
-      ..color = Colors.black.withOpacity(0.4)
+    final backgroundPaint = Paint()
+      ..color = backgroundColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      ..strokeWidth = 6;
+    canvas.drawCircle(center, radius, backgroundPaint);
 
-    final paint = Paint()
-      ..color = Colors.orangeAccent.withOpacity(0.9)
+    final progressPaint = Paint()
+      ..color = circleColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
+      ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawPath(path, shadow);
-    canvas.drawPath(path, paint);
+    double startAngle = -pi / 2;
+    double sweepAngle = 2 * pi * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant MapPathPainter oldDelegate) =>
-      oldDelegate.centers != centers;
+  bool shouldRepaint(covariant _LevelCirclePainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+// LevelNode
+class _LevelNode extends StatelessWidget {
+  final bool isCompleted;
+  final bool isLocked;
+  final bool isCurrent;
+  final VoidCallback onTap;
+
+  const _LevelNode({
+    required this.isCompleted,
+    required this.isLocked,
+    required this.isCurrent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String asset = isLocked
+        ? 'assets/images/icon_level_closed-f.png'
+        : isCompleted
+        ? 'assets/images/icon_level_complited-f.png'
+        : isCurrent
+        ? 'assets/images/icon_current_level-pink.png'
+        : 'assets/images/icon_current_level-pink.png';
+
+    return GestureDetector(
+      onTap: isLocked ? null : onTap,
+      child: SizedBox(
+        width: 75,
+        height: 75,
+        child: Image.asset(asset, fit: BoxFit.contain),
+      ),
+    );
+  }
 }

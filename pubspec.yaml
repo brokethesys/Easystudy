@@ -32,6 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.0.6
+  shimmer: ^3.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -69,7 +70,13 @@ flutter:
      - assets/images/quiz_bg.jpg
      - assets/images/new_bg_map.jpg
      - assets/images/coin.png
-
+     - assets/images/icon_level_complited-f.png
+     - assets/images/icon_level_closed-f.png
+     - assets/images/icon_current_level-blue.png
+     - assets/images/icon_current_level-green.png
+     - assets/images/icon_current_level-light-blue.png
+     - assets/images/icon_current_level-peach.png
+     - assets/images/icon_current_level-pink.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

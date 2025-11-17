@@ -65,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 78,
       decoration: BoxDecoration(
-        color: const Color(0xFF131F24), // фон как у достижений
+        color: const Color(0xFF131E22), // фон как у достижений
         border: Border(
           top: BorderSide(
             color: const Color(0xFF37464F),
