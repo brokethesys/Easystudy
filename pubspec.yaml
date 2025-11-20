@@ -77,6 +77,9 @@ flutter:
      - assets/images/icon_current_level-light-blue.png
      - assets/images/icon_current_level-peach.png
      - assets/images/icon_current_level-pink.png
+     - assets/images/icon_math.png
+     - assets/images/icon_chemistry.png
+     - assets/images/icon_english.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
