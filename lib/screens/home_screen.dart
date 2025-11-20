@@ -65,12 +65,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 78,
       decoration: BoxDecoration(
-        color: const Color(0xFF131E22), // фон как у достижений
-        border: Border(
-          top: BorderSide(
-            color: const Color(0xFF37464F),
-            width: 1.5,
-          ), // обводка сверху
+        color: const Color(0xFF131E22),
+        border: const Border(
+          top: BorderSide(color: Color(0xFF37464F), width: 1.5),
         ),
         boxShadow: [
           BoxShadow(
@@ -83,45 +80,57 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: List.generate(3, (i) {
           final bool active = _currentPage == i;
+          bool isPressed = false; // локальное состояние нажатия
+
           return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                _onBottomNavTap(i);
-              },
-              child: Container(
-                margin: const EdgeInsets.all(
-                  8,
-                ), // отступ, чтобы выглядел квадратом
-                decoration: BoxDecoration(
-                  color: const Color(0xFF131F24), // фон квадрата
-                  border: active
-                      ? Border.all(
-                          color: const Color(
-                            0xFF3C85A7,
-                          ), // рамка текущего экрана
-                          width: 2,
-                        )
-                      : null,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Icon(
-                    icons[i],
-                    size: 32,
-                    color: active ? Colors.white : Colors.white70,
-                    shadows: active
-                        ? [
-                            const Shadow(
-                              color: Colors.black,
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ]
-                        : [],
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return GestureDetector(
+                  onTapDown: (_) {
+                    setState(() => isPressed = true);
+                  },
+                  onTapUp: (_) {
+                    setState(() => isPressed = false);
+                    HapticFeedback.lightImpact();
+                    _onBottomNavTap(i);
+                  },
+                  onTapCancel: () {
+                    setState(() => isPressed = false);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    transform: Matrix4.translationValues(
+                      0,
+                      isPressed ? 4 : 0,
+                      0,
+                    ), // смещение вниз при нажатии
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF131F24),
+                      border: active
+                          ? Border.all(color: const Color(0xFF3C85A7), width: 2)
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        icons[i],
+                        size: 32,
+                        color: active ? Colors.white : Colors.white70,
+                        shadows: active
+                            ? const [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ]
+                            : [],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           );
         }),

@@ -12,10 +12,12 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen>
-    with SingleTickerProviderStateMixin {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late AnimationController _xpController;
   late Animation<double> _xpAnimation;
+
+  late AnimationController _subjectController;
+  late Animation<double> _subjectAnimation;
 
   late final ScrollController _scrollController;
 
@@ -37,12 +39,23 @@ class _MapScreenState extends State<MapScreen>
     );
 
     _scrollController = ScrollController();
+
+    _subjectController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _subjectAnimation = CurvedAnimation(
+      parent: _subjectController,
+      curve: Curves.easeOutCubic,
+    );
   }
-  
+
   @override
   void dispose() {
     _xpController.dispose();
     _scrollController.dispose();
+    _subjectController.dispose();
     super.dispose();
   }
 
@@ -61,11 +74,11 @@ class _MapScreenState extends State<MapScreen>
         )..addListener(() {
           setState(() {});
         });
+
     _xpController.forward(from: 0);
     _previousXpRatio = newRatio;
   }
 
-  
   List<Offset> _calculateLevelCenters(Size screenSize, double mapHeight) {
     const int totalLevels = 25;
     const double stepY = 100.0;
@@ -130,31 +143,29 @@ class _MapScreenState extends State<MapScreen>
     });
   }
 
-  // === Верхняя панель с круговым индикатором уровня + выбор предмета ===
+  // ======= Верхняя панель HUD =======
   Widget _topHUD(BuildContext context, GameState state) {
-    final double widgetHeight = 48.0;
+    final double widgetHeight = 34.0;
     final Color switchColor = const Color(0xFF49C0F7);
     final Color backgroundColor = const Color(0xFF131F24);
 
     return Positioned(
-      top: 0, // фон идёт от самого верха
+      top: 0,
       left: 0,
       right: 0,
       child: Container(
-        color: backgroundColor, // фон до верха экрана
+        color: backgroundColor,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: SizedBox(
-            height: 48 + 40, // высота HUD + верхний отступ
+            height: 48 + 40,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Круг уровня
+                // Круг опыта
                 Padding(
-                  padding: const EdgeInsets.only(
-                    top: 40,
-                  ), // сохраняем позицию HUD
+                  padding: const EdgeInsets.only(top: 40),
                   child: CustomPaint(
                     painter: _LevelCirclePainter(
                       progress: _xpAnimation.value,
@@ -179,13 +190,13 @@ class _MapScreenState extends State<MapScreen>
                   ),
                 ),
 
-                // Кнопка предмета (иконка)
+                // Кнопка предмета
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: _subjectButton(widgetHeight),
                 ),
 
-                // Монеты и баланс
+                // Монеты
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: Row(
@@ -201,7 +212,7 @@ class _MapScreenState extends State<MapScreen>
                         style: const TextStyle(
                           fontFamily: 'ClashRoyale',
                           fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                          fontSize: 16,
                           color: Colors.amber,
                         ),
                       ),
@@ -209,7 +220,7 @@ class _MapScreenState extends State<MapScreen>
                   ),
                 ),
 
-                // Кнопка настроек
+                // Настройки
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: SizedBox(
@@ -220,7 +231,7 @@ class _MapScreenState extends State<MapScreen>
                       child: Icon(
                         Icons.settings,
                         color: Colors.orangeAccent,
-                        size: widgetHeight * 0.6,
+                        size: widgetHeight * 1,
                       ),
                     ),
                   ),
@@ -233,39 +244,17 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  String _subjectName(Subject subj) {
-    switch (subj) {
-      case Subject.chemistry:
-        return "ХИМИЯ";
-      case Subject.math:
-        return "МАТЕМАТИКА";
-      case Subject.english:
-        return "АНГЛИЙСКИЙ ЯЗЫК";
-    }
-  }
-
-  void _openTheorySheet(
-    BuildContext context,
-    int blockNumber,
-    String blockTitle,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return _TheorySheet(blockNumber: blockNumber, blockTitle: blockTitle);
-      },
-    );
-  }
-
-  // Виджет выбора предмета заменён на иконку с выезжающим меню
-  // Метод для верхней кнопки предмета (только иконка)
+  // ===== Кнопка предмета =====
   Widget _subjectButton(double widgetHeight) {
     return GestureDetector(
       onTap: () {
         setState(() {
           showSubjectPicker = !showSubjectPicker;
+          if (showSubjectPicker) {
+            _subjectController.forward();
+          } else {
+            _subjectController.reverse();
+          }
         });
       },
       child: SizedBox(
@@ -276,54 +265,99 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  // Выпадающее горизонтальное меню предметов
+  // ===== Выпадающее меню предметов =====
+  // ===== Выпадающее меню предметов =====
   Widget _subjectMenu(GameState state, double widgetHeight) {
-    if (!showSubjectPicker) return const SizedBox.shrink();
+    final double hudHeight = 48 + 40; // высота HUD
+    final double menuHeight =
+        120.0; // увеличенная высота, чтобы покрывало chapter block
 
-    return Positioned(
-      top: widgetHeight + 48, // чуть ниже верхнего меню
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        color: const Color(0xFF131F24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: Subject.values.map((subj) {
-            final bool isCurrent = subj == currentSubject;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  currentSubject = subj;
-                  showSubjectPicker = false;
-                });
-                state.switchSubject(subj);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: isCurrent
-                    ? BoxDecoration(
-                        border: Border.all(
-                          color: const Color(0xFF49C0F7),
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      )
-                    : null,
-                child: Image.asset(
-                  _subjectIcon(subj),
-                  width: widgetHeight * 0.7,
-                  height: widgetHeight * 0.7,
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: !showSubjectPicker,
+        child: AnimatedBuilder(
+          animation: _subjectController,
+          builder: (context, _) {
+            // Slide из-под HUD
+            final offset = Tween<Offset>(
+              begin: const Offset(0, -1),
+              end: Offset.zero,
+            ).animate(_subjectAnimation).value;
+
+            return Stack(
+              children: [
+                // затемнённый фон с плавным исчезновением
+                Opacity(
+                  opacity: _subjectAnimation.value * 0.5,
+                  child: GestureDetector(
+                    onTap: () {
+                      _subjectController.reverse().then((_) {
+                        setState(() => showSubjectPicker = false);
+                      });
+                    },
+                    child: Container(color: Colors.black),
+                  ),
                 ),
-              ),
+                // само меню
+                Positioned(
+                  top: hudHeight + offset.dy * menuHeight,
+                  left: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () {}, // нажатия по меню не закрывают его
+                    child: Container(
+                      height: menuHeight,
+                      color: const Color(0xFF131F24),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: Subject.values.map((subj) {
+                          final bool isCurrent = subj == currentSubject;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                currentSubject = subj;
+                              });
+                              state.switchSubject(subj);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: isCurrent
+                                  ? BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: Color(0xFF49C0F7),
+                                        width: 2,
+                                      ),
+                                    )
+                                  : null,
+                              child: Image.asset(
+                                _subjectIcon(subj),
+                                width: widgetHeight * 1,
+                                height: widgetHeight * 1,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+                // линия между HUD и меню
+                Positioned(
+                  top: hudHeight - 1,
+                  left: 0,
+                  right: 0,
+                  child: Container(height: 1, color: Colors.white24),
+                ),
+              ],
             );
-          }).toList(),
+          },
         ),
       ),
     );
   }
 
-  // Метод возвращает путь к иконке предмета
   String _subjectIcon(Subject subj) {
     switch (subj) {
       case Subject.chemistry:
@@ -335,9 +369,9 @@ class _MapScreenState extends State<MapScreen>
     }
   }
 
-  // === Блок информации о разделе и теме ===
+  // ===== Блок информации о разделе и теме =====
   Widget _chapterBlock(GameState state) {
-    final double hudHeight = 40 + 48; // top padding + HUD + небольшой отступ
+    final double hudHeight = 40 + 48;
     final int currentLevel = state.currentLevel;
     final int blockNumber = ((currentLevel - 1) ~/ 5) + 1;
 
@@ -352,52 +386,104 @@ class _MapScreenState extends State<MapScreen>
     final String blockTitle =
         blockTitles[(blockNumber - 1) % blockTitles.length];
 
-    return Positioned(
-      top: hudHeight,
-      left: 0,
-      right: 0,
-      child: Container(
-        color: const Color(0xFF131F24), // фон карты под блоком
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: GestureDetector(
-          onTap: () => _openTheorySheet(context, blockNumber, blockTitle),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFCA74C7),
-              borderRadius: BorderRadius.circular(16),
-              border: const Border(
-                bottom: BorderSide(color: Color(0xFF6E276B), width: 6),
+    bool isPressed = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Stack(
+          children: [
+            // Фон под блоком от HUD до самой кнопки
+            Positioned(
+              top: hudHeight,
+              left: 0,
+              right: 0,
+              height: hudHeight, // 90 — высота блока
+              child: Container(color: const Color(0xFF131F24)),
+            ),
+
+            // Сам блок
+            Positioned(
+              top: hudHeight,
+              left: 0,
+              right: 0,
+              child: GestureDetector(
+                onTapDown: (_) => setState(() => isPressed = true),
+                onTapUp: (_) {
+                  setState(() => isPressed = false);
+                  _openTheorySheet(context, blockNumber, blockTitle);
+                },
+                onTapCancel: () => setState(() => isPressed = false),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  transform: Matrix4.translationValues(0, isPressed ? 4 : 0, 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCA74C7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border(
+                        bottom: isPressed
+                            ? BorderSide.none
+                            : const BorderSide(
+                                color: Color(0xFF6E276B),
+                                width: 6,
+                              ),
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "РАЗДЕЛ 1, БЛОК $blockNumber",
+                          style: const TextStyle(
+                            fontFamily: "ClashRoyale",
+                            fontSize: 13,
+                            letterSpacing: 1.2,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          blockTitle,
+                          style: const TextStyle(
+                            fontFamily: "ClashRoyale",
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "РАЗДЕЛ 1, БЛОК $blockNumber",
-                  style: const TextStyle(
-                    fontFamily: "ClashRoyale",
-                    fontSize: 13,
-                    letterSpacing: 1.2,
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  blockTitle,
-                  style: const TextStyle(
-                    fontFamily: "ClashRoyale",
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openTheorySheet(
+    BuildContext context,
+    int blockNumber,
+    String blockTitle,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return _TheorySheet(blockNumber: blockNumber, blockTitle: blockTitle);
+      },
     );
   }
 
@@ -410,8 +496,7 @@ class _MapScreenState extends State<MapScreen>
     const double stepY = 100.0;
     const double topPadding = 120.0;
     const double bottomPadding = 100.0;
-    final double safeZoneHeight =
-        40 + 48 + 90 + 16; // top padding + HUD + chapter block + отступ
+    final double safeZoneHeight = 40 + 48 + 90 + 16;
     final double mapHeight =
         topPadding + bottomPadding + (totalLevels - 1) * stepY;
 
@@ -427,9 +512,7 @@ class _MapScreenState extends State<MapScreen>
             reverse: true,
             physics: const ClampingScrollPhysics(),
             child: SizedBox(
-              height:
-                  mapHeight +
-                  safeZoneHeight, // добавляем сверху безопасную зону
+              height: mapHeight + safeZoneHeight,
               child: Stack(
                 children: [
                   Positioned(
@@ -445,16 +528,16 @@ class _MapScreenState extends State<MapScreen>
               ),
             ),
           ),
-          _topHUD(context, state),
           _chapterBlock(state),
           _subjectMenu(state, 48),
+          _topHUD(context, state),
         ],
       ),
     );
   }
 }
 
-// Painter для кругового индикатора
+// ===== Painter для круга опыта =====
 class _LevelCirclePainter extends CustomPainter {
   final double progress;
   final Color circleColor;
@@ -500,7 +583,7 @@ class _LevelCirclePainter extends CustomPainter {
   }
 }
 
-// LevelNode
+// ===== Node уровня =====
 class _LevelNode extends StatelessWidget {
   final bool isCompleted;
   final bool isLocked;
@@ -535,6 +618,7 @@ class _LevelNode extends StatelessWidget {
   }
 }
 
+// ===== Теория для блока =====
 class _TheorySheet extends StatelessWidget {
   final int blockNumber;
   final String blockTitle;
@@ -556,7 +640,6 @@ class _TheorySheet extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Верхний бар со стрелкой
               Container(
                 padding: const EdgeInsets.only(
                   left: 12,
@@ -587,9 +670,7 @@ class _TheorySheet extends StatelessWidget {
                   ],
                 ),
               ),
-
               const Divider(color: Colors.white24, height: 1),
-
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
