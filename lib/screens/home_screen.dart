@@ -4,6 +4,7 @@ import '../data/game_state.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
 import 'achievements_screen.dart';
+import 'profile_screen.dart';        // ← добавлено
 import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,10 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _pageController.addListener(() {
       setState(() {
-        _indicatorPosition = ((_pageController.page ?? _currentPage).clamp(
-          0.0,
-          2.0,
-        )).toDouble();
+        _indicatorPosition = ((_pageController.page ?? _currentPage)
+                .clamp(0.0, 3.0))
+            .toDouble();
       });
     });
   }
@@ -47,15 +47,31 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     context.watch<GameState>();
 
-    const icons = [Icons.shop, Icons.map_rounded, Icons.workspace_premium];
-    const labels = ['Магазин', 'Уровни', 'Достижения'];
+    const icons = [
+      Icons.person,           // Профиль ← новая кнопка
+      Icons.shop,             // Магазин
+      Icons.map_rounded,      // Уровни
+      Icons.workspace_premium // Достижения
+    ];
+
+    const labels = [
+      'Профиль',
+      'Магазин',
+      'Уровни',
+      'Достижения',
+    ];
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 67, 91, 112),
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
-        children: const [ShopScreen(), MapScreen(), AchievementsScreen()],
+        children: const [
+          ProfileScreen(),     // ← новая 4-я страница
+          ShopScreen(),
+          MapScreen(),
+          AchievementsScreen()
+        ],
       ),
       bottomNavigationBar: _buildBottomBar(icons, labels),
     );
@@ -78,32 +94,28 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: Row(
-        children: List.generate(3, (i) {
+        children: List.generate(4, (i) {        // ← было 3, стало 4
           final bool active = _currentPage == i;
-          bool isPressed = false; // локальное состояние нажатия
+          bool isPressed = false;
 
           return Expanded(
             child: StatefulBuilder(
               builder: (context, setState) {
                 return GestureDetector(
-                  onTapDown: (_) {
-                    setState(() => isPressed = true);
-                  },
+                  onTapDown: (_) => setState(() => isPressed = true),
                   onTapUp: (_) {
                     setState(() => isPressed = false);
                     HapticFeedback.lightImpact();
                     _onBottomNavTap(i);
                   },
-                  onTapCancel: () {
-                    setState(() => isPressed = false);
-                  },
+                  onTapCancel: () => setState(() => isPressed = false),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 100),
                     transform: Matrix4.translationValues(
                       0,
                       isPressed ? 4 : 0,
                       0,
-                    ), // смещение вниз при нажатии
+                    ),
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: const Color(0xFF131F24),
@@ -118,8 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: 32,
                         color: active ? Colors.white : Colors.white70,
                         shadows: active
-                            ? const [
-                                Shadow(
+                            ? const [Shadow(
                                   color: Colors.black,
                                   blurRadius: 6,
                                   offset: Offset(0, 2),

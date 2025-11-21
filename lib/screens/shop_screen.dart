@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../main.dart'; // для currentBackground
+import '../main.dart'; // для currentBackground, если нужен
 import '../data/game_state.dart';
 
 class ShopScreen extends StatelessWidget {
@@ -17,23 +17,37 @@ class ShopScreen extends StatelessWidget {
     {'id': 'teal', 'color': Colors.teal, 'price': 600},
   ];
 
+  final List<Map<String, dynamic>> frames = const [
+    {'id': 'default', 'price': 0},
+    {'id': 'gold', 'price': 300},
+    {'id': 'silver', 'price': 200},
+    {'id': 'bronze', 'price': 100},
+  ];
+
+  final List<Map<String, dynamic>> avatars = const [
+    {'id': 'default', 'price': 0},
+    {'id': 'wizard', 'price': 300},
+    {'id': 'knight', 'price': 400},
+    {'id': 'archer', 'price': 500},
+  ];
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
 
-    final ownedItems = backgrounds
+    final ownedBackgrounds = backgrounds
         .where((bg) => state.ownedBackgrounds.contains(bg['id']))
         .toList();
-    final lockedItems = backgrounds
+    final lockedBackgrounds = backgrounds
         .where((bg) => !state.ownedBackgrounds.contains(bg['id']))
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24), // 🔹 Статичный фон
+      backgroundColor: const Color(0xFF131F24),
       appBar: AppBar(
         backgroundColor: const Color(0xFF067D06),
         centerTitle: true,
-        title: outlinedText('Магазин фонов', fontSize: 20),
+        title: outlinedText('Магазин', fontSize: 20),
         elevation: 0,
         actions: [
           Row(
@@ -44,11 +58,7 @@ class ShopScreen extends StatelessWidget {
                 child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
               ),
               const SizedBox(width: 4),
-              outlinedText(
-                '${state.coins}',
-                fontSize: 16,
-                fillColor: Colors.white,
-              ),
+              outlinedText('${state.coins}', fontSize: 16, fillColor: Colors.white),
               const SizedBox(width: 16),
             ],
           ),
@@ -59,9 +69,11 @@ class ShopScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildSection(context, 'Ваши фоны', ownedItems, true),
+            _buildSection(context, 'Фоны', backgrounds, state.selectedBackground, state.ownedBackgrounds, (id) => state.selectBackground(id), (id, price) => state.buyBackground(id, price)),
             const SizedBox(height: 20),
-            _buildSection(context, 'Недоступные', lockedItems, false),
+            _buildSection(context, 'Рамки', frames, state.selectedFrame, state.ownedFrames, (id) => state.selectFrame(id), (id, price) => state.buyFrame(id, price)),
+            const SizedBox(height: 20),
+            _buildSection(context, 'Аватары', avatars, state.selectedAvatar, state.ownedAvatars, (id) => state.selectAvatar(id), (id, price) => state.buyAvatar(id, price)),
           ],
         ),
       ),
@@ -72,7 +84,10 @@ class ShopScreen extends StatelessWidget {
     BuildContext context,
     String title,
     List<Map<String, dynamic>> items,
-    bool ownedSection,
+    String selectedId,
+    List<String> ownedIds,
+    Function(String) selectFunc,
+    bool Function(String, int) buyFunc,
   ) {
     final state = context.read<GameState>();
 
@@ -94,39 +109,30 @@ class ShopScreen extends StatelessWidget {
             childAspectRatio: 0.65,
           ),
           itemBuilder: (context, index) {
-            final bg = items[index];
-            final bool isSelected = state.selectedBackground == bg['id'];
-            final bool isOwned = state.ownedBackgrounds.contains(bg['id']);
-            final double progress =
-                (state.coins / (bg['price'] == 0 ? 1 : bg['price']))
-                    .clamp(0, 1)
-                    .toDouble();
+            final item = items[index];
+            final bool isOwned = ownedIds.contains(item['id']);final bool isSelected = selectedId == item['id'];
+            final int price = item['price'] ?? 0;
+
+            double progress = isOwned ? 1.0 : (state.coins / (price == 0 ? 1 : price)).clamp(0, 1).toDouble();
 
             return GestureDetector(
               onTap: () {
                 if (isOwned) {
-                  state.selectBackground(bg['id']);
-                  currentBackground.value = bg['id'];
+                  selectFunc(item['id']);
                 } else {
-                  final success = state.buyBackground(bg['id'], bg['price']);
+                  final success = buyFunc(item['id'], price);
                   if (success) {
-                    currentBackground.value = bg['id'];
+                    selectFunc(item['id']);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: outlinedText(
-                          'Фон "${bg['id']}" успешно куплен!',
-                          fontSize: 14,
-                        ),
+                        content: outlinedText('Вы купили ${item['id']}!', fontSize: 14),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: outlinedText(
-                          'Недостаточно монет 💰',
-                          fontSize: 14,
-                        ),
+                        content: outlinedText('Недостаточно монет 💰', fontSize: 14),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -135,19 +141,12 @@ class ShopScreen extends StatelessWidget {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: bg['color'], // 🔹 Используем цвет фона из массива
+                  color: item['color'] ?? Colors.grey,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFF37464F), // 🔹 Обводка
-                    width: 1.5,
+                    color: const Color(0xFF37464F),
+                    width: isSelected ? 3 : 1.5,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
                 ),
                 child: Stack(
                   children: [
@@ -163,10 +162,7 @@ class ShopScreen extends StatelessWidget {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 6,
-                          horizontal: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.4),
                           borderRadius: const BorderRadius.only(
@@ -177,50 +173,37 @@ class ShopScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            if (isOwned)
-                              outlinedText(
-                                isSelected ? 'Выбран' : 'Доступен',
-                                fontSize: 12,
-                                fillColor: Colors.white70,
-                              )
-                            else
-                              Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                            isOwned
+                                ? outlinedText(
+                                    isSelected ? 'Выбран' : 'Доступен',
+                                    fontSize: 12,
+                                    fillColor: Colors.white70,
+                                  )
+                                : Column(
                                     children: [
-                                      outlinedText(
-                                        '${state.coins}/${bg['price']}',
-                                        fontSize: 12,
-                                        fillColor: const Color.fromARGB(255, 255, 255, 255),
-                                      ), // Зеленый прогресс
-                                      const SizedBox(width: 4),
-                                      SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: Image.asset(
-                                          'assets/images/coin.png',
-                                          fit: BoxFit.cover,
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          outlinedText('${state.coins}/$price', fontSize: 12, fillColor: Colors.white),
+                                          const SizedBox(width: 4),
+                                          SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),child: LinearProgressIndicator(
+                                          value: progress,
+                                          backgroundColor: const Color(0xFF37464F),
+                                          color: const Color(0xFF58A700),
+                                          minHeight: 6,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      backgroundColor: const Color(
-                                        0xFF37464F,
-                                      ), // Пустая часть
-                                      color: const Color(
-                                        0xFF58A700,
-                                      ), // Заполненная часть
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                ],
-                              ),
                           ],
                         ),
                       ),

@@ -80,6 +80,8 @@ flutter:
      - assets/images/icon_math.png
      - assets/images/icon_chemistry.png
      - assets/images/icon_english.png
+     - assets/images/frame_default.png
+     - assets/images/avatar_default.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

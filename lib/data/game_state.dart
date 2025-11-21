@@ -22,8 +22,17 @@ class GameState extends ChangeNotifier {
   List<String> ownedBackgrounds;
   String selectedBackground;
 
+  List<String> ownedFrames;
+  String selectedFrame;
+
+  List<String> ownedAvatars;
+  String selectedAvatar;
+
   // === Достижения ===
   Set<int> collectedAchievements;
+
+  // === Ник игрока ===
+  String nickname;
 
   GameState({
     this.soundEnabled = true,
@@ -37,7 +46,12 @@ class GameState extends ChangeNotifier {
     Map<Subject, Set<int>>? completedLevels,
     List<String>? ownedBackgrounds,
     this.selectedBackground = 'blue',
+    List<String>? ownedFrames,
+    this.selectedFrame = 'default',
+    List<String>? ownedAvatars,
+    this.selectedAvatar = 'default',
     Set<int>? collectedAchievements,
+    this.nickname = 'Player',
   })  : currentLevels = currentLevels ??
             {
               Subject.chemistry: 1,
@@ -52,6 +66,8 @@ class GameState extends ChangeNotifier {
             },
         ownedBackgrounds = ownedBackgrounds ??
             ['blue', 'green', 'purple', 'orange'],
+        ownedFrames = ownedFrames ?? ['default'],
+        ownedAvatars = ownedAvatars ?? ['default'],
         collectedAchievements = collectedAchievements ?? {};
 
   // === Константы ===
@@ -66,7 +82,7 @@ class GameState extends ChangeNotifier {
     return rewardStage * 100;
   }
 
-  // === Загрузка и сохранение ===
+  // === Загрузка ===
   static Future<GameState> load() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -107,13 +123,18 @@ class GameState extends ChangeNotifier {
       ownedBackgrounds: prefs.getStringList('ownedBackgrounds') ??
           ['blue', 'green', 'purple', 'orange'],
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
+      ownedFrames: prefs.getStringList('ownedFrames') ?? ['default'],
+      selectedFrame: prefs.getString('selectedFrame') ?? 'default',ownedAvatars: prefs.getStringList('ownedAvatars') ?? ['default'],
+      selectedAvatar: prefs.getString('selectedAvatar') ?? 'default',
       collectedAchievements:
           (prefs.getStringList('collectedAchievements') ?? [])
               .map(int.parse)
               .toSet(),
+      nickname: prefs.getString('nickname') ?? 'Player',
     );
   }
 
+  // === Сохранение ===
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -141,10 +162,19 @@ class GameState extends ChangeNotifier {
 
     await prefs.setStringList('ownedBackgrounds', ownedBackgrounds);
     await prefs.setString('selectedBackground', selectedBackground);
+
+    await prefs.setStringList('ownedFrames', ownedFrames);
+    await prefs.setString('selectedFrame', selectedFrame);
+
+    await prefs.setStringList('ownedAvatars', ownedAvatars);
+    await prefs.setString('selectedAvatar', selectedAvatar);
+
     await prefs.setStringList(
       'collectedAchievements',
       collectedAchievements.map((e) => e.toString()).toList(),
     );
+
+    await prefs.setString('nickname', nickname);
   }
 
   // === Переключение предмета ===
@@ -181,7 +211,6 @@ class GameState extends ChangeNotifier {
       completedLevels[subject]!.clear();
       currentLevels[subject] = 1;
     } else {
-      // сброс всех предметов
       for (var s in Subject.values) {
         completedLevels[s]!.clear();
         currentLevels[s] = 1;
@@ -191,6 +220,10 @@ class GameState extends ChangeNotifier {
       coins = 0;
       ownedBackgrounds = ['blue', 'green', 'purple', 'orange'];
       selectedBackground = 'blue';
+      ownedFrames = ['default'];
+      selectedFrame = 'default';
+      ownedAvatars = ['default'];
+      selectedAvatar = 'default';
       collectedAchievements.clear();
     }
     notifyListeners();
@@ -211,6 +244,44 @@ class GameState extends ChangeNotifier {
       coins -= price;
       ownedBackgrounds.add(id);
       selectedBackground = id;
+      notifyListeners();
+      save();
+      return true;
+    }
+    return false;
+  }
+
+  void selectFrame(String id) {
+    if (ownedFrames.contains(id)) {
+      selectedFrame = id;
+      notifyListeners();
+      save();
+    }
+  }bool buyFrame(String id, int price) {
+    if (coins >= price && !ownedFrames.contains(id)) {
+      coins -= price;
+      ownedFrames.add(id);
+      selectedFrame = id;
+      notifyListeners();
+      save();
+      return true;
+    }
+    return false;
+  }
+
+  void selectAvatar(String id) {
+    if (ownedAvatars.contains(id)) {
+      selectedAvatar = id;
+      notifyListeners();
+      save();
+    }
+  }
+
+  bool buyAvatar(String id, int price) {
+    if (coins >= price && !ownedAvatars.contains(id)) {
+      coins -= price;
+      ownedAvatars.add(id);
+      selectedAvatar = id;
       notifyListeners();
       save();
       return true;
