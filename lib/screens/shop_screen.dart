@@ -1,46 +1,46 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../main.dart'; // для currentBackground, если нужен
 import '../data/game_state.dart';
 
-class ShopScreen extends StatelessWidget {
+class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
-  final List<Map<String, dynamic>> backgrounds = const [
-    {'id': 'blue', 'color': Colors.blue, 'price': 0},
-    {'id': 'green', 'color': Colors.green, 'price': 0},
-    {'id': 'purple', 'color': Colors.purple, 'price': 0},
-    {'id': 'orange', 'color': Colors.orange, 'price': 0},
-    {'id': 'red', 'color': Colors.red, 'price': 300},
-    {'id': 'cyan', 'color': Colors.cyan, 'price': 400},
-    {'id': 'pink', 'color': Colors.pink, 'price': 500},
-    {'id': 'teal', 'color': Colors.teal, 'price': 600},
-  ];
+  @override
+  State<ShopScreen> createState() => _ShopScreenState();
+}
 
-  final List<Map<String, dynamic>> frames = const [
-    {'id': 'default', 'price': 0},
-    {'id': 'gold', 'price': 300},
-    {'id': 'silver', 'price': 200},
-    {'id': 'bronze', 'price': 100},
-  ];
+class _ShopScreenState extends State<ShopScreen> {
+  List<String> avatarPaths = [];
+  List<String> framePaths = [];
+  List<String> backgroundPaths = [];
 
-  final List<Map<String, dynamic>> avatars = const [
-    {'id': 'default', 'price': 0},
-    {'id': 'wizard', 'price': 300},
-    {'id': 'knight', 'price': 400},
-    {'id': 'archer', 'price': 500},
-  ];
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadAssets();
+  }
+
+  Future<void> _loadAssets() async {
+    final manifestContent = await DefaultAssetBundle.of(context).loadString('AssetManifest.json');
+    final Map<String, dynamic> manifestMap = json.decode(manifestContent);
+
+    setState(() {
+      avatarPaths = manifestMap.keys
+          .where((key) => key.startsWith('assets/images/avatars/'))
+          .toList();
+      framePaths = manifestMap.keys
+          .where((key) => key.startsWith('assets/images/frames/'))
+          .toList();
+      backgroundPaths = manifestMap.keys
+          .where((key) => key.startsWith('assets/images/backgrounds/'))
+          .toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
-
-    final ownedBackgrounds = backgrounds
-        .where((bg) => state.ownedBackgrounds.contains(bg['id']))
-        .toList();
-    final lockedBackgrounds = backgrounds
-        .where((bg) => !state.ownedBackgrounds.contains(bg['id']))
-        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -67,13 +67,15 @@ class ShopScreen extends StatelessWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildSection(context, 'Фоны', backgrounds, state.selectedBackground, state.ownedBackgrounds, (id) => state.selectBackground(id), (id, price) => state.buyBackground(id, price)),
+            _buildSection('Фоны', backgroundPaths, state.selectedBackground,
+                state.ownedBackgrounds, (path) => state.selectBackground(path), (path, price) => state.buyBackground(path, price)),
             const SizedBox(height: 20),
-            _buildSection(context, 'Рамки', frames, state.selectedFrame, state.ownedFrames, (id) => state.selectFrame(id), (id, price) => state.buyFrame(id, price)),
+            _buildSection('Рамки', framePaths, state.selectedFrame,
+                state.ownedFrames, (path) => state.selectFrame(path), (path, price) => state.buyFrame(path, price)),
             const SizedBox(height: 20),
-            _buildSection(context, 'Аватары', avatars, state.selectedAvatar, state.ownedAvatars, (id) => state.selectAvatar(id), (id, price) => state.buyAvatar(id, price)),
+            _buildSection('Аватары', avatarPaths, state.selectedAvatar,
+                state.ownedAvatars, (path) => state.selectAvatar(path), (path, price) => state.buyAvatar(path, price)),
           ],
         ),
       ),
@@ -81,16 +83,13 @@ class ShopScreen extends StatelessWidget {
   }
 
   Widget _buildSection(
-    BuildContext context,
     String title,
-    List<Map<String, dynamic>> items,
-    String selectedId,
-    List<String> ownedIds,
+    List<String> paths,
+    String selectedPath,
+    List<String> ownedPaths,
     Function(String) selectFunc,
     bool Function(String, int) buyFunc,
   ) {
-    final state = context.read<GameState>();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -101,7 +100,7 @@ class ShopScreen extends StatelessWidget {
         GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
-          itemCount: items.length,
+          itemCount: paths.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
             crossAxisSpacing: 12,
@@ -109,23 +108,23 @@ class ShopScreen extends StatelessWidget {
             childAspectRatio: 0.65,
           ),
           itemBuilder: (context, index) {
-            final item = items[index];
-            final bool isOwned = ownedIds.contains(item['id']);final bool isSelected = selectedId == item['id'];
-            final int price = item['price'] ?? 0;
+            final path = paths[index];
+            final bool isOwned = ownedPaths.contains(path);
+            final bool isSelected = selectedPath == path;
+            final int price = 100; // можно задать дефолтную цену или хранить мапу цен
 
-            double progress = isOwned ? 1.0 : (state.coins / (price == 0 ? 1 : price)).clamp(0, 1).toDouble();
+            double progress = isOwned ? 1.0 : (Provider.of<GameState>(context, listen: false).coins / price).clamp(0, 1).toDouble();
 
             return GestureDetector(
-              onTap: () {
-                if (isOwned) {
-                  selectFunc(item['id']);
+              onTap: () {if (isOwned) {
+                  selectFunc(path);
                 } else {
-                  final success = buyFunc(item['id'], price);
+                  final success = buyFunc(path, price);
                   if (success) {
-                    selectFunc(item['id']);
+                    selectFunc(path);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: outlinedText('Вы купили ${item['id']}!', fontSize: 14),
+                        content: outlinedText('Вы купили!', fontSize: 14),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -141,15 +140,18 @@ class ShopScreen extends StatelessWidget {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: item['color'] ?? Colors.grey,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFF37464F),
+                    color: isSelected ? Colors.white : const Color(0xFF37464F),
                     width: isSelected ? 3 : 1.5,
                   ),
                 ),
                 child: Stack(
                   children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(path, fit: BoxFit.cover),
+                    ),
                     if (!isOwned)
                       Container(
                         decoration: BoxDecoration(
@@ -170,42 +172,37 @@ class ShopScreen extends StatelessWidget {
                             bottomRight: Radius.circular(12),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            isOwned
-                                ? outlinedText(
-                                    isSelected ? 'Выбран' : 'Доступен',
-                                    fontSize: 12,
-                                    fillColor: Colors.white70,
-                                  )
-                                : Column(
+                        child: isOwned
+                            ? outlinedText(
+                                isSelected ? 'Выбран' : 'Доступен',
+                                fontSize: 12,
+                                fillColor: Colors.white70,
+                              )
+                            : Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          outlinedText('${state.coins}/$price', fontSize: 12, fillColor: Colors.white),
-                                          const SizedBox(width: 4),
-                                          SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 3),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),child: LinearProgressIndicator(
-                                          value: progress,
-                                          backgroundColor: const Color(0xFF37464F),
-                                          color: const Color(0xFF58A700),
-                                          minHeight: 6,
-                                        ),
+                                      outlinedText('$price', fontSize: 12, fillColor: Colors.white),
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
                                       ),
                                     ],
                                   ),
-                          ],
-                        ),
+                                  const SizedBox(height: 3),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: const Color(0xFF37464F),
+                                      color: const Color(0xFF58A700),
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ],),
                       ),
                     ),
                   ],

@@ -14,10 +14,10 @@ class ProfileScreen extends StatelessWidget {
 
     // Аватар и рамка
     final avatar = state.selectedAvatar == 'default'
-        ? 'assets/images/avatar_default.png'
+        ? 'assets/images/avatars/avatar_default.png'
         : 'assets/images/avatar_${state.selectedAvatar}.png';
     final frame = state.selectedFrame == 'default'
-        ? 'assets/images/frame_default.png'
+        ? 'assets/images/frames/frame_default.png'
         : 'assets/images/frame_${state.selectedFrame}.png';
 
     final nickname = state.nickname;

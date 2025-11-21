@@ -65,23 +65,10 @@ flutter:
         - asset: assets/fonts/Rubik-Medium.ttf
   # To add assets to your application, add an assets section, like this:
   assets:
-     - assets/images/bg_map2.png
-     - assets/images/bg_map3.png
-     - assets/images/quiz_bg.jpg
-     - assets/images/new_bg_map.jpg
-     - assets/images/coin.png
-     - assets/images/icon_level_complited-f.png
-     - assets/images/icon_level_closed-f.png
-     - assets/images/icon_current_level-blue.png
-     - assets/images/icon_current_level-green.png
-     - assets/images/icon_current_level-light-blue.png
-     - assets/images/icon_current_level-peach.png
-     - assets/images/icon_current_level-pink.png
-     - assets/images/icon_math.png
-     - assets/images/icon_chemistry.png
-     - assets/images/icon_english.png
-     - assets/images/frame_default.png
-     - assets/images/avatar_default.png
+     - assets/images/
+     - assets/images/backgrounds/
+     - assets/images/avatars/
+     - assets/images/frames/
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
