@@ -36,26 +36,118 @@ class AchievementsScreen extends StatelessWidget {
     }
 
     final achievements = [
+      // Прогресс по уровням по всем предметам без учета первых уровней
       {
         "title": "Пройти 3 уровня",
-        "progress": gameState.completedLevels.length,
+        "progress": gameState.totalCompletedLevels,
         "goal": 3,
         "reward": 50,
         "description": "Завершите прохождение 3 уровней",
+        "type": "levels_total",
       },
       {
         "title": "Пройти 5 уровней",
-        "progress": gameState.completedLevels.length,
+        "progress": gameState.totalCompletedLevels,
         "goal": 5,
         "reward": 75,
         "description": "Завершите прохождение 5 уровней",
+        "type": "levels_total",
       },
+      {
+        "title": "Пройти все 75 уровней",
+        "progress": gameState.totalCompletedLevels,
+        "goal": 75,
+        "reward": 500,
+        "description": "Завершите все 75 уровней игры",
+        "type": "levels_total",
+      },
+      
+      // Прогресс по химии
+      {
+        "title": "Химик-новичок",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry),
+        "goal": 3,
+        "reward": 80,
+        "description": "Пройти 3 уровня по химии",
+        "type": "chemistry_levels",
+      },
+      {
+        "title": "Химик-эксперт",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry),
+        "goal": 10,
+        "reward": 150,
+        "description": "Пройти 10 уровней по химии",
+        "type": "chemistry_levels",
+      },
+      {
+        "title": "Мастер химии",
+        "progress": gameState.getCurrentMaxLevel(Subject.chemistry),
+        "goal": 20,
+        "reward": 300,
+        "description": "Достигнуть 20 уровня в химии",
+        "type": "chemistry_max",
+      },
+      
+      // Прогресс по математике
+      {
+        "title": "Математик-новичок",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.math),
+        "goal": 3,
+        "reward": 80,
+        "description": "Пройти 3 уровня по математике",
+        "type": "math_levels",
+      },
+      {
+        "title": "Математик-эксперт",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.math),
+        "goal": 10,
+        "reward": 150,
+        "description": "Пройти 10 уровней по математике",
+        "type": "math_levels",
+      },
+      {
+        "title": "Мастер математики",
+        "progress": gameState.getCurrentMaxLevel(Subject.math),
+        "goal": 20,
+        "reward": 300,
+        "description": "Достигнуть 20 уровня в математике",
+        "type": "math_max",
+      },
+      
+      // Прогресс по английскому
+      {
+        "title": "Лингвист-новичок",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.english),
+        "goal": 3,
+        "reward": 80,
+        "description": "Пройти 3 уровня по английскому (без учета 1-го уровня)",
+        "type": "english_levels",
+      },
+      {
+        "title": "Лингвист-эксперт",
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.english),
+        "goal": 5,
+        "reward": 150,
+        "description": "Пройти 5 уровней по английскому (без учета 1-го уровня)",
+        "type": "english_levels",
+      },
+      {
+        "title": "Мастер английского",
+        "progress": gameState.getCurrentMaxLevel(Subject.english),
+        "goal": 10,
+        "reward": 300,
+        "description": "Достигнуть 10 уровня в английском",
+        "type": "english_max",
+      },
+      
+      // Достижения по коллекциям и монетам
       {
         "title": "Открыть 5 фонов",
         "progress": gameState.ownedBackgrounds.length,
         "goal": 5,
         "reward": 100,
         "description": "Соберите коллекцию из 5 различных фонов",
+        "type": "backgrounds",
       },
       {
         "title": "Заработать 500 монет",
@@ -63,14 +155,9 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 500,
         "reward": 120,
         "description": "Накопите 500 монет",
+        "type": "coins",
       },
-      {
-        "title": "Пройти все 10 уровней",
-        "progress": gameState.completedLevels.length,
-        "goal": 10,
-        "reward": 200,
-        "description": "Завершите все 10 уровней игры",
-      },
+      
       // Новые достижения с нулевым прогрессом
       {
         "title": "Набрать 1000 очков",
@@ -78,6 +165,7 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 1000,
         "reward": 150,
         "description": "Наберите в сумме 1000 очков во всех уровнях",
+        "type": "score",
       },
       {
         "title": "Идеально пройти 3 уровня",
@@ -85,6 +173,7 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 3,
         "reward": 175,
         "description": "Завершите 3 уровня с максимальным рейтингом",
+        "type": "perfect",
       },
       {
         "title": "Играть 7 дней подряд",
@@ -92,6 +181,7 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 7,
         "reward": 200,
         "description": "Заходите в игру 7 дней подряд",
+        "type": "streak",
       },
       {
         "title": "Собрать 50 звезд",
@@ -99,6 +189,7 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 50,
         "reward": 250,
         "description": "Соберите в общей сложности 50 звезд",
+        "type": "stars",
       },
       {
         "title": "Провести 60 минут в игре",
@@ -106,6 +197,7 @@ class AchievementsScreen extends StatelessWidget {
         "goal": 60,
         "reward": 300,
         "description": "Проведите в игре более 60 минут",
+        "type": "time",
       },
     ];
 
@@ -148,6 +240,114 @@ class AchievementsScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
+              // === Статистика ===
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A2B35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF37464F),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Всего пройдено уровней:",
+                          style: TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Text(
+                          gameState.totalCompletedLevels.toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Уровней по химии:",
+                          style: TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Text(
+                          gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry).toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Уровней по математике:",
+                          style: TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Text(
+                          gameState.getCompletedLevelsCountWithoutFirst(Subject.math).toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Уровней по английскому:",
+                          style: TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        Text(
+                          gameState.getCompletedLevelsCountWithoutFirst(Subject.english).toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               Expanded(
                 child: ListView.builder(
                   itemCount: achievements.length,
@@ -157,9 +357,22 @@ class AchievementsScreen extends StatelessWidget {
                     final goal = ach["goal"] as int;
                     final reward = ach["reward"] as int;
                     final description = ach["description"] as String;
+                    final type = ach["type"] as String;
                     final percent = (progress / goal).clamp(0.0, 1.0);
                     final completed = percent >= 1.0;
                     final collected = gameState.isAchievementCollected(index);
+
+                    // Определяем цвет полосы прогресса в зависимости от типа достижения
+                    Color progressColor = const Color(0xFF58A700);
+                    if (type.contains("chemistry")) {
+                      progressColor = Colors.green;
+                    } else if (type.contains("math")) {
+                      progressColor = Colors.blue;
+                    } else if (type.contains("english")) {
+                      progressColor = Colors.orange;
+                    } else if (type == "levels_total") {
+                      progressColor = Colors.purple;
+                    }
 
                     return Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -196,7 +409,12 @@ class AchievementsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (index >= 5) // Новые достижения помечаем как "новые"
+                              // Помечаем как "НОВОЕ" только те достижения, которые не являются основными
+                              if (type == "score" || 
+                                  type == "perfect" || 
+                                  type == "streak" || 
+                                  type == "stars" || 
+                                  type == "time")
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 2),
@@ -256,7 +474,7 @@ class AchievementsScreen extends StatelessWidget {
                                             decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(10),
-                                              color: const Color(0xFF58A700),
+                                              color: progressColor,
                                             ),
                                           );
                                         },

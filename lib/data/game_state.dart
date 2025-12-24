@@ -82,6 +82,30 @@ class GameState extends ChangeNotifier {
     return rewardStage * 100;
   }
 
+  // === Вспомогательные методы для достижений ===
+  
+  // Метод для получения количества пройденных уровней без учета первых уровней
+  int getCompletedLevelsCountWithoutFirst(Subject subject) {
+    final completed = completedLevels[subject] ?? {};
+    // Исключаем уровень 1 из подсчета
+    return completed.where((level) => level > 0).length;
+  }
+  
+  // Общее количество пройденных уровней
+  int get totalCompletedLevels {
+    int total = 0;
+    for (var subject in Subject.values) {
+      total += getCompletedLevelsCountWithoutFirst(subject);
+    }
+    return total;
+  }
+  
+  // Получение текущего максимального уровня по предмету
+  int getCurrentMaxLevel(Subject subject) {
+    final completed = completedLevels[subject] ?? {};
+    return completed.isNotEmpty ? completed.reduce((a, b) => a > b ? a : b) : 0;
+  }
+
   // === Загрузка ===
   static Future<GameState> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -89,7 +113,7 @@ class GameState extends ChangeNotifier {
     Map<Subject, int> loadLevels() => {
           Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
           Subject.math: prefs.getInt('math_level') ?? 1,
-          Subject.english: prefs.getInt('english_level') ?? 1,
+          Subject.english: prefs.getInt('history_level') ?? 1,
         };
 
     Map<Subject, Set<int>> loadCompleted() => {
@@ -99,7 +123,7 @@ class GameState extends ChangeNotifier {
           Subject.math: (prefs.getStringList('math_completed') ?? [])
               .map(int.parse)
               .toSet(),
-          Subject.english: (prefs.getStringList('english_completed') ?? [])
+          Subject.english: (prefs.getStringList('history_completed') ?? [])
               .map(int.parse)
               .toSet(),
         };
@@ -124,7 +148,8 @@ class GameState extends ChangeNotifier {
           ['blue', 'green', 'purple', 'orange'],
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
       ownedFrames: prefs.getStringList('ownedFrames') ?? ['default'],
-      selectedFrame: prefs.getString('selectedFrame') ?? 'default',ownedAvatars: prefs.getStringList('ownedAvatars') ?? ['default'],
+      selectedFrame: prefs.getString('selectedFrame') ?? 'default',
+      ownedAvatars: prefs.getStringList('ownedAvatars') ?? ['default'],
       selectedAvatar: prefs.getString('selectedAvatar') ?? 'default',
       collectedAchievements:
           (prefs.getStringList('collectedAchievements') ?? [])
@@ -199,8 +224,12 @@ class GameState extends ChangeNotifier {
   void completeLevel(int levelNumber) {
     final subject = currentSubject;
     completedLevels[subject]!.add(levelNumber);
-    currentLevels[subject] =
-        currentLevels[subject]! > levelNumber ? currentLevels[subject]! : levelNumber + 1;
+    
+    // Обновляем текущий уровень только если он меньше, чем пройденный + 1
+    if (currentLevels[subject]! <= levelNumber) {
+      currentLevels[subject] = levelNumber + 1;
+    }
+    
     notifyListeners();
     save();
   }
@@ -257,7 +286,9 @@ class GameState extends ChangeNotifier {
       notifyListeners();
       save();
     }
-  }bool buyFrame(String id, int price) {
+  }
+
+  bool buyFrame(String id, int price) {
     if (coins >= price && !ownedFrames.contains(id)) {
       coins -= price;
       ownedFrames.add(id);
