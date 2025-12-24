@@ -14,8 +14,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final PageController _pageController = PageController(initialPage: 0);
-  int _currentPage = 0;
+  final PageController _pageController = PageController(initialPage: 1);
+  int _currentPage = 1;
   double _indicatorPosition = 0.0;
 
   @override
