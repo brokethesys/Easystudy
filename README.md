@@ -1,3 +1,1 @@
-# dickink
-# anal sharikcs
-# ass sharikcs
+# EasyStudy
