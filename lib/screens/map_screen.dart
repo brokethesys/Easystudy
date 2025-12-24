@@ -1038,7 +1038,7 @@ XX век стал самым драматичным периодом в ист�
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "$subjectName",
+                          subjectName,
                           style: const TextStyle(
                             fontFamily: "ClashRoyale",
                             fontSize: 16,

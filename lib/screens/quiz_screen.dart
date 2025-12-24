@@ -13,7 +13,7 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
-  late Map<String, dynamic> question;
+  Map<String, dynamic> question = {}; // Инициализировано пустой картой вместо late
   int? selectedIndex;
   int? correctAnswerIndex;
   bool answered = false;
@@ -445,6 +445,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
                     const SizedBox(height: 10),
 
+                    // Загрузка или контент
                     if (isLoading && question.isEmpty)
                       Expanded(
                         child: Center(
