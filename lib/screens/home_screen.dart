@@ -4,7 +4,7 @@ import '../data/game_state.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
 import 'achievements_screen.dart';
-import 'profile_screen.dart';        // ← добавлено
+import 'profile_screen.dart';
 import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -24,9 +24,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _pageController.addListener(() {
       setState(() {
-        _indicatorPosition = ((_pageController.page ?? _currentPage)
-                .clamp(0.0, 3.0))
-            .toDouble();
+        _indicatorPosition = ((_pageController.page ?? _currentPage).clamp(
+          0.0,
+          3.0,
+        )).toDouble();
       });
     });
   }
@@ -47,19 +48,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     context.watch<GameState>();
 
-    const icons = [
-      Icons.person,           // Профиль ← новая кнопка
-      Icons.shop,             // Магазин
-      Icons.map_rounded,      // Уровни
-      Icons.workspace_premium // Достижения
+    final icons = [
+      'assets/images/icons/icon_profile.png',
+      'assets/images/icons/icon_shop.png',
+      'assets/images/icons/icon_map.png',
+      'assets/images/icons/icon_achievements.png',
     ];
 
-    const labels = [
-      'Профиль',
-      'Магазин',
-      'Уровни',
-      'Достижения',
-    ];
+    const labels = ['Профиль', 'Магазин', 'Уровни', 'Достижения'];
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 67, 91, 112),
@@ -67,17 +63,17 @@ class _HomeScreenState extends State<HomeScreen> {
         controller: _pageController,
         onPageChanged: _onPageChanged,
         children: const [
-          ProfileScreen(),     // ← новая 4-я страница
+          ProfileScreen(),
           ShopScreen(),
           MapScreen(),
-          AchievementsScreen()
+          AchievementsScreen(),
         ],
       ),
       bottomNavigationBar: _buildBottomBar(icons, labels),
     );
   }
 
-  Widget _buildBottomBar(List<IconData> icons, List<String> labels) {
+  Widget _buildBottomBar(List<String> icons, List<String> labels) {
     return Container(
       height: 78,
       decoration: BoxDecoration(
@@ -94,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: Row(
-        children: List.generate(4, (i) {        // ← было 3, стало 4
+        children: List.generate(4, (i) {
           final bool active = _currentPage == i;
           bool isPressed = false;
 
@@ -125,18 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
-                      child: Icon(
+                      child: Image.asset(
                         icons[i],
-                        size: 32,
-                        color: active ? Colors.white : Colors.white70,
-                        shadows: active
-                            ? const [Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
-                                ),
-                              ]
-                            : [],
+                        width: 40, // ⬅ увеличили размер
+                        height: 40, // ⬅ увеличили размер
                       ),
                     ),
                   ),

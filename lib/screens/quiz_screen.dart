@@ -44,7 +44,7 @@ class _QuizScreenState extends State<QuizScreen> {
       case Subject.math:
         return mathQuestions;
       case Subject.english:
-        return englishQuestions;
+        return historyRussiaQuestions;
     }
   }
 

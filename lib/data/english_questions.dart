@@ -1,127 +1,129 @@
-final List<Map<String, dynamic>> englishQuestions = [
+final List<Map<String, dynamic>> historyRussiaQuestions = [
+
+  // ===== XVII век =====
   {
-    "question": "What is the plural of 'mouse'?",
-    "options": ["mouses", "mices", "mouse", "mice"],
-    "answer": 3,
-  },
-  {
-    "question": "Choose the correct form: 'He ___ to school every day.'",
-    "options": ["go", "goes", "gone", "going"],
+    "question": "Какой период истории России называют Смутным временем?",
+    "options": ["1605–1613", "1598–1613", "1613–1649", "1584–1598"],
     "answer": 1,
   },
   {
-    "question": "What is the past tense of 'eat'?",
-    "options": ["eated", "ate", "eaten", "eats"],
-    "answer": 1,
-  },
-  {
-    "question": "Which article fits: '___ apple a day keeps the doctor away'?",
-    "options": ["A", "An", "The", "No article"],
-    "answer": 1,
-  },
-  {
-    "question": "What is the opposite of 'cold'?",
-    "options": ["cool", "hot", "freezing", "warm"],
-    "answer": 1,
-  },
-  {
-    "question": "Translate: 'Кошка' in English.",
-    "options": ["Dog", "Cat", "Cow", "Mouse"],
-    "answer": 1,
-  },
-  {
-    "question": "Choose the synonym for 'happy'.",
-    "options": ["sad", "angry", "joyful", "tired"],
+    "question": "Какая династия пришла к власти в России в 1613 году?",
+    "options": ["Рюриковичи", "Годуновы", "Романовы", "Шуйские"],
     "answer": 2,
   },
   {
-    "question": "Find the adjective: 'The sky is blue.'",
-    "options": ["sky", "is", "blue", "the"],
+    "question": "Кто был первым царём из династии Романовых?",
+    "options": ["Алексей Михайлович", "Михаил Фёдорович", "Фёдор Алексеевич", "Пётр I"],
+    "answer": 1,
+  },
+  {
+    "question": "Какой документ 1649 года окончательно закрепил крепостное право?",
+    "options": ["Русская правда", "Судебник", "Соборное уложение", "Манифест"],
     "answer": 2,
   },
   {
-    "question": "What is the correct form of 'be' for 'They ___ students'?",
-    "options": ["is", "am", "are", "was"],
-    "answer": 2,
-  },
-  {
-    "question": "Which word is a noun?",
-    "options": ["run", "happiness", "quickly", "sleep"],
-    "answer": 1,
-  },
-  {
-    "question": "Complete: 'I have ___ apple.'",
-    "options": ["a", "an", "the", "one"],
-    "answer": 1,
-  },
-  {
-    "question": "Find the correct question: '___ you like pizza?'",
-    "options": ["Is", "Do", "Does", "Are"],
-    "answer": 1,
-  },
-  {
-    "question": "What is the opposite of 'old'?",
-    "options": ["new", "young", "fresh", "modern"],
+    "question": "Как называлось народное восстание под предводительством Степана Разина?",
+    "options": ["Крестьянская война", "Соляной бунт", "Медный бунт", "Городское восстание"],
     "answer": 0,
   },
   {
-    "question": "What is the past tense of 'go'?",
-    "options": ["gone", "goed", "went", "going"],
+    "question": "Какое государство вошло в состав России в XVII веке после Переяславской рады?",
+    "options": ["Белоруссия", "Прибалтика", "Украина", "Финляндия"],
     "answer": 2,
   },
+
+  // ===== XVIII век =====
   {
-    "question": "Which is a color?",
-    "options": ["apple", "green", "run", "dog"],
+    "question": "Какой правитель провёл масштабные реформы в начале XVIII века?",
+    "options": ["Иван IV", "Пётр I", "Екатерина II", "Александр I"],
     "answer": 1,
   },
   {
-    "question": "Translate: 'Дом' in English.",
-    "options": ["house", "mouse", "homework", "room"],
+    "question": "В каком году Россия была провозглашена империей?",
+    "options": ["1700", "1721", "1762", "1796"],
+    "answer": 1,
+  },
+  {
+    "question": "Какая война обеспечила России выход к Балтийскому морю?",
+    "options": ["Северная война", "Семилетняя война", "Русско-турецкая война", "Крымская война"],
     "answer": 0,
   },
   {
-    "question": "Choose the correct: 'She ___ reading a book.'",
-    "options": ["am", "is", "are", "be"],
-    "answer": 1,
-  },
-  {
-    "question": "Find the adverb: 'He runs fast.'",
-    "options": ["He", "runs", "fast", "none"],
+    "question": "Какой город стал новой столицей Российской империи при Петре I?",
+    "options": ["Москва", "Новгород", "Санкт-Петербург", "Казань"],
     "answer": 2,
   },
   {
-    "question": "Complete: 'I ___ a student.'",
-    "options": ["am", "is", "are", "be"],
+    "question": "Какой правитель проводил политику «просвещённого абсолютизма»?",
+    "options": ["Пётр I", "Анна Иоанновна", "Екатерина II", "Павел I"],
+    "answer": 2,
+  },
+  {
+    "question": "Какое крупное крестьянское восстание произошло в XVIII веке?",
+    "options": ["Восстание Разина", "Восстание Булавина", "Восстание Пугачёва", "Декабристское восстание"],
+    "answer": 2,
+  },
+
+  // ===== XIX век =====
+  {
+    "question": "Какое событие произошло в России в 1812 году?",
+    "options": ["Крымская война", "Отечественная война", "Русско-японская война", "Восстание декабристов"],
+    "answer": 1,
+  },
+  {
+    "question": "Какой император отменил крепостное право?",
+    "options": ["Николай I", "Александр I", "Александр II", "Александр III"],
+    "answer": 2,
+  },
+  {
+    "question": "В каком году было отменено крепостное право?",
+    "options": ["1856", "1861", "1874", "1881"],
+    "answer": 1,
+  },
+  {
+    "question": "Какое событие произошло в декабре 1825 года?",
+    "options": ["Революция", "Крестьянская война", "Восстание декабристов", "Отмена крепостного права"],
+    "answer": 2,
+  },
+  {
+    "question": "Какая война выявила отсталость России в середине XIX века?",
+    "options": ["Русско-турецкая", "Крымская", "Отечественная", "Балканская"],
+    "answer": 1,
+  },
+  {
+    "question": "Как называется политика контрреформ конца XIX века?",
+    "options": ["Либеральная", "Революционная", "Консервативная", "Социалистическая"],
+    "answer": 2,
+  },
+
+  // ===== XX век =====
+  {
+    "question": "Какие революции произошли в России в 1917 году?",
+    "options": ["Февральская и Октябрьская", "Октябрьская и Ноябрьская", "Февральская и Мартовская", "Первая и Вторая"],
     "answer": 0,
   },
   {
-    "question": "Choose the correct spelling:",
-    "options": ["becaus", "becos", "because", "becouse"],
-    "answer": 2,
-  },
-  {
-    "question": "Which pronoun replaces 'Tom and I'?",
-    "options": ["They", "We", "Us", "He"],
+    "question": "В каком году был образован СССР?",
+    "options": ["1917", "1922", "1924", "1936"],
     "answer": 1,
   },
   {
-    "question": "Which one is a verb?",
-    "options": ["run", "car", "green", "apple"],
-    "answer": 0,
-  },
-  {
-    "question": "Translate: 'Учитель' in English.",
-    "options": ["doctor", "pupil", "teacher", "student"],
+    "question": "Как называлась экономическая политика 1920-х годов?",
+    "options": ["Коллективизация", "Индустриализация", "НЭП", "Военный коммунизм"],
     "answer": 2,
   },
   {
-    "question": "Find the plural form of 'child'.",
-    "options": ["childs", "childes", "children", "childer"],
+    "question": "Как называется война 1941–1945 гг. в истории России?","options": ["Первая мировая", "Гражданская", "Великая Отечественная", "Холодная"],
     "answer": 2,
   },
   {
-    "question": "Choose the correct preposition: 'He is ___ the car.'",
-    "options": ["on", "in", "at", "to"],
-    "answer": 1,
+    "question": "Какой процесс связан с правлением М. С. Горбачёва?",
+    "options": ["Индустриализация", "Оттепель", "Перестройка", "Коллективизация"],
+    "answer": 2,
+  },
+  {
+    "question": "Какое событие произошло в 1991 году?",
+    "options": ["Начало перестройки", "Принятие Конституции РФ", "Распад СССР", "Создание Варшавского договора"],
+    "answer": 2,
   },
 ];

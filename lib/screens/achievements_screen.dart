@@ -136,13 +136,13 @@ class AchievementsScreen extends StatelessWidget {
                                   child: Stack(
                                     children: [
                                       Container(
-                                        height: 28,
+                                        height: 20,
                                         decoration: BoxDecoration(
                                           color: const Color(
                                             0xFF37464F,
                                           ), // ← статичный тёмно-серо-синий фон
                                           borderRadius: BorderRadius.circular(
-                                            14,
+                                            10,
                                           ),
                                         ),
                                       ),
@@ -151,10 +151,10 @@ class AchievementsScreen extends StatelessWidget {
                                           return Container(
                                             width:
                                                 constraints.maxWidth * percent,
-                                            height: 28,
+                                            height: 20,
                                             decoration: BoxDecoration(
                                               borderRadius:
-                                                  BorderRadius.circular(14),
+                                                  BorderRadius.circular(10),
                                               color: const Color(0xFF58A700), // всегда зелёный
                                             ),
                                           );
@@ -170,7 +170,7 @@ class AchievementsScreen extends StatelessWidget {
                                                 : "$progress/$goal",
                                             style: const TextStyle(
                                               fontFamily: 'ClashRoyale',
-                                              fontSize: 18,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.white,
                                             ),

@@ -24,6 +24,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   double _previousXpRatio = 0.0;
   bool showSubjectPicker = false;
   Subject currentSubject = Subject.math;
+  int _visibleBlockIndex = 0;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    _scrollController.addListener(_onScroll);
 
     _subjectAnimation = CurvedAnimation(
       parent: _subjectController,
@@ -67,6 +69,26 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _updateXpAnimation(state.currentXP / state.xpForNextLevel);
   }
 
+  void _onScroll() {
+    const double stepY = 100.0;
+    const double topPadding = 120.0;
+    const double safeZoneHeight = 40 + 48 + 90 + 16;
+
+    final offset = _scrollController.offset;
+
+    // уровень, который сейчас примерно по центру экрана
+    final levelIndex = ((offset + safeZoneHeight - topPadding) / stepY).floor();
+
+    final clampedLevel = levelIndex.clamp(0, 24);
+    final blockIndex = clampedLevel ~/ 6;
+
+    if (blockIndex != _visibleBlockIndex) {
+      setState(() {
+        _visibleBlockIndex = blockIndex;
+      });
+    }
+  }
+
   void _updateXpAnimation(double newRatio) {
     _xpAnimation =
         Tween<double>(begin: _previousXpRatio, end: newRatio).animate(
@@ -88,15 +110,30 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     const double bottomPadding = 100.0;
     final rand = Random(42);
 
+    double currentY = mapHeight - bottomPadding;
+
     return List.generate(totalLevels, (i) {
-      final double y = mapHeight - bottomPadding - i * stepY;
+      // === шаг по Y ===
+      double localStep = stepY;
+
+      // если это ПЕРВЫЙ уровень нового блока (7, 13, 19...)
+      if (i > 0 && i % 6 == 0) {
+        localStep = stepY * 2; // увеличенный шаг
+      }
+
+      if (i != 0) {
+        currentY -= localStep;
+      }
+
+      // === синусоида по X ===
       double x;
       if (i == 0) {
         x = centerX;
       } else {
         x = centerX + sin(i * 1.3) * 60 + (rand.nextDouble() * 10 - 5);
       }
-      return Offset(x - widgetWidth / 2, y);
+
+      return Offset(x - widgetWidth / 2, currentY);
     });
   }
 
@@ -104,6 +141,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     BuildContext context,
     GameState state,
     List<Offset> centers,
+    Size screenSize,
   ) {
     const double nodeSize = 75.0;
 
@@ -121,6 +159,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         top: c.dy,
         left: c.dx,
         child: _LevelNode(
+          levelNumber: levelNumber,
           isCompleted: isCompleted,
           isCurrent: isCurrent,
           isLocked: isLocked,
@@ -143,9 +182,35 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     });
   }
 
+  List<Widget> _buildBlockSeparators(Size screenSize, List<Offset> centers) {
+    final List<Widget> separators = [];
+
+    for (int i = 6; i < centers.length; i += 6) {
+      final blockIndex = i ~/ 6 + 1;
+
+      final double y = (centers[i - 1].dy + centers[i].dy) / 2 + 24;
+
+      separators.add(
+        Positioned(
+          top: y,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: _BlockSeparator(
+              title: "Блок $blockIndex",
+              width: screenSize.width * 0.9,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return separators;
+  }
+
   // ======= Верхняя панель HUD =======
   Widget _topHUD(BuildContext context, GameState state) {
-    final double widgetHeight = 34.0;
+    final double widgetHeight = 40.0;
     final Color switchColor = const Color(0xFF49C0F7);
     final Color backgroundColor = const Color(0xFF131F24);
 
@@ -212,7 +277,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                         style: const TextStyle(
                           fontFamily: 'ClashRoyale',
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Colors.amber,
                         ),
                       ),
@@ -265,7 +330,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ===== Выпадающее меню предметов =====
   // ===== Выпадающее меню предметов =====
   Widget _subjectMenu(GameState state, double widgetHeight) {
     final double hudHeight = 48 + 40; // высота HUD
@@ -343,13 +407,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                // линия между HUD и меню
-                Positioned(
-                  top: hudHeight - 1,
-                  left: 0,
-                  right: 0,
-                  child: Container(height: 1, color: Colors.white24),
-                ),
+                // тонкая разделительная линия между HUD и меню
+                if (_subjectAnimation.value > 0)
+                  Positioned(
+                    top: hudHeight,
+                    left: 0,
+                    right: 0,
+                    child: Opacity(
+                      opacity: _subjectAnimation.value,
+                      child: Container(height: 1, color: Color(0xFF37464F)),
+                    ),
+                  ),
               ],
             );
           },
@@ -365,26 +433,71 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       case Subject.math:
         return 'assets/images/icon_math.png';
       case Subject.english:
-        return 'assets/images/icon_english.png';
+        return 'assets/images/icon_history.png';
     }
   }
 
   // ===== Блок информации о разделе и теме =====
+  // ===== Блок информации о разделе и теме =====
   Widget _chapterBlock(GameState state) {
     final double hudHeight = 40 + 48;
-    final int currentLevel = state.currentLevel;
-    final int blockNumber = ((currentLevel - 1) ~/ 5) + 1;
+    final int blockNumber = _visibleBlockIndex + 1;
+    final style = blockStyles[_visibleBlockIndex % blockStyles.length];
 
-    const List<String> blockTitles = [
-      "Основы темы",
-      "Продвинутые задания",
-      "Сложные примеры",
-      "Практика применения",
-      "Контрольный блок",
-    ];
+    final Color blockLight = style["light"];
+    final Color blockDark = style["dark"];
 
-    final String blockTitle =
-        blockTitles[(blockNumber - 1) % blockTitles.length];
+    // Уникальные названия блоков для каждого предмета
+    String getBlockTitle(Subject subject, int blockNumber) {
+      final index = (blockNumber - 1) % 5; // Циклически повторяем по 5 блоков
+
+      switch (subject) {
+        case Subject.math:
+          final mathTitles = [
+            "Основы алгебры",
+            "Геометрия",
+            "Тригонометрия",
+            "Функции и графики",
+            "Контрольный блок",
+          ];
+          return mathTitles[index];
+
+        case Subject.chemistry:
+          final chemistryTitles = [
+            "Основные понятия",
+            "Неорганическая химия",
+            "Органическая химия",
+            "Химические реакции",
+            "Контрольный блок",
+          ];
+          return chemistryTitles[index];
+
+        case Subject.english:
+          final englishTitles = [
+            "XVII век",
+            "XVIII век",
+            "XIX век",
+            "XX век",
+            "XXIf век",
+          ];
+          return englishTitles[index];
+      }
+    }
+
+    // Уникальные названия разделов для каждого предмета
+    String getSectionName(Subject subject) {
+      switch (subject) {
+        case Subject.math:
+          return "МАТЕМАТИКА";
+        case Subject.chemistry:
+          return "ХИМИЯ";
+        case Subject.english:
+          return "ИСТОРИЯ";
+      }
+    }
+
+    final String blockTitle = getBlockTitle(currentSubject, blockNumber);
+    final String sectionName = getSectionName(currentSubject);
 
     bool isPressed = false;
 
@@ -422,15 +535,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFCA74C7),
+                      color: blockLight,
                       borderRadius: BorderRadius.circular(16),
                       border: Border(
                         bottom: isPressed
                             ? BorderSide.none
-                            : const BorderSide(
-                                color: Color(0xFF6E276B),
-                                width: 6,
-                              ),
+                            : BorderSide(color: blockDark, width: 6),
                       ),
                     ),
                     padding: const EdgeInsets.symmetric(
@@ -441,7 +551,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "РАЗДЕЛ 1, БЛОК $blockNumber",
+                          "$sectionName, БЛОК $blockNumber",
                           style: const TextStyle(
                             fontFamily: "ClashRoyale",
                             fontSize: 13,
@@ -482,7 +592,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return _TheorySheet(blockNumber: blockNumber, blockTitle: blockTitle);
+        return _TheorySheet(
+          blockNumber: blockNumber,
+          blockTitle: blockTitle,
+          subject: currentSubject,
+        );
       },
     );
   }
@@ -501,7 +615,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         topPadding + bottomPadding + (totalLevels - 1) * stepY;
 
     final centers = _calculateLevelCenters(size, mapHeight);
-    final nodes = _buildLevelNodes(context, state, centers);
+    final nodes = _buildLevelNodes(context, state, centers, size);
+    final separators = _buildBlockSeparators(size, centers);
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -521,7 +636,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     right: 0,
                     child: SizedBox(
                       height: mapHeight,
-                      child: Stack(children: nodes),
+                      child: Stack(children: [...separators, ...nodes]),
                     ),
                   ),
                 ],
@@ -531,6 +646,68 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           _chapterBlock(state),
           _subjectMenu(state, 48),
           _topHUD(context, state),
+        ],
+      ),
+    );
+  }
+}
+
+/// Цветовые блоки (светлый + тёмный)
+const List<Map<String, dynamic>> blockStyles = [
+  {
+    "light": Color(0xFF4E95D9),
+    "dark": Color(0xFF215F9A),
+    "icon": "assets/images/icon_current_level-blue.png",
+  },
+  {
+    "light": Color(0xFF8ED973),
+    "dark": Color(0xFF3B7D23),
+    "icon": "assets/images/icon_current_level-green.png",
+  },
+  {
+    "light": Color(0xFFF2AA84),
+    "dark": Color(0xFFC04F15),
+    "icon": "assets/images/icon_current_level-peach.png",
+  },
+  {
+    "light": Color(0xFFD86ECC),
+    "dark": Color(0xFF78206E),
+    "icon": "assets/images/icon_current_level-pink.png",
+  },
+  {
+    "light": Color(0xFF46B1E1),
+    "dark": Color(0xFF104862),
+    "icon": "assets/images/icon_current_level-light-blue.png",
+  },
+];
+
+class _BlockSeparator extends StatelessWidget {
+  final String title;
+  final double width;
+
+  const _BlockSeparator({required this.title, required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 24,
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 2, color: const Color(0xFF37464F))),
+          const SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: "ClashRoyale",
+              fontSize: 14,
+              letterSpacing: 1.3,
+              color: Color(0xFF37464F),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Container(height: 2, color: const Color(0xFF37464F))),
         ],
       ),
     );
@@ -585,12 +762,14 @@ class _LevelCirclePainter extends CustomPainter {
 
 // ===== Node уровня =====
 class _LevelNode extends StatelessWidget {
+  final int levelNumber;
   final bool isCompleted;
   final bool isLocked;
   final bool isCurrent;
   final VoidCallback onTap;
 
   const _LevelNode({
+    required this.levelNumber,
     required this.isCompleted,
     required this.isLocked,
     required this.isCurrent,
@@ -599,13 +778,22 @@ class _LevelNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String asset = isLocked
-        ? 'assets/images/icon_level_closed-f.png'
-        : isCompleted
-        ? 'assets/images/icon_level_complited-f.png'
-        : isCurrent
-        ? 'assets/images/icon_current_level-pink.png'
-        : 'assets/images/icon_current_level-pink.png';
+    String asset;
+
+    /// блок текущего уровня
+    final int blockNumber = ((levelNumber - 1) ~/ 6) + 1;
+    final style = blockStyles[(blockNumber - 1) % blockStyles.length];
+    final String currentIcon = style["icon"];
+
+    if (isLocked) {
+      asset = 'assets/images/icon_level_closed-f.png';
+    } else if (isCompleted) {
+      asset = 'assets/images/icon_level_complited-f.png';
+    } else if (isCurrent) {
+      asset = currentIcon;
+    } else {
+      asset = currentIcon;
+    }
 
     return GestureDetector(
       onTap: isLocked ? null : onTap,
@@ -618,15 +806,254 @@ class _LevelNode extends StatelessWidget {
   }
 }
 
-// ===== Теория для блока =====
+// ===== Теория для блока с учетом предмета =====
 class _TheorySheet extends StatelessWidget {
   final int blockNumber;
   final String blockTitle;
+  final Subject subject;
 
-  const _TheorySheet({required this.blockNumber, required this.blockTitle});
+  const _TheorySheet({
+    required this.blockNumber,
+    required this.blockTitle,
+    required this.subject,
+  });
+
+  // Получение теории для конкретного предмета и блока
+  String _getTheoryContent(Subject subject, int blockNumber) {
+    switch (subject) {
+      case Subject.math:
+        return _getMathTheory(blockNumber);
+      case Subject.chemistry:
+        return _getChemistryTheory(blockNumber);
+      case Subject.english:
+        return _getEnglishTheory(blockNumber);
+    }
+  }
+
+  String _getMathTheory(int blockNumber) {
+    switch (blockNumber) {
+      case 1:
+        return """
+📚 **Математика - Блок 1: Основы алгебры**
+
+🔹 **Линейные уравнения:**
+• Формула: ax + b = 0
+• Решение: x = -b/a
+• Пример: 2x + 4 = 0 → x = -2
+
+🔹 **Квадратные уравнения:**
+• Формула: ax² + bx + c = 0
+• Дискриминант: D = b² - 4ac
+• Корни: x₁,₂ = (-b ± √D) / 2a
+
+🔹 **Основные тождества:**
+• (a + b)² = a² + 2ab + b²
+• (a - b)² = a² - 2ab + b²
+• a² - b² = (a - b)(a + b)
+
+📝 **Практические задания:**
+1. Решите: 3x + 7 = 16
+2. Найдите корни: x² - 5x + 6 = 0
+3. Упростите: (2x + 3)² - (x - 2)²
+""";
+      case 2:
+        return """
+📚 **Математика - Блок 2: Геометрия**
+
+🔹 **Теорема Пифагора:**
+• c² = a² + b²
+• Для прямоугольного треугольника
+
+🔹 **Площади фигур:**
+• Квадрат: S = a²
+• Прямоугольник: S = a × b
+• Треугольник: S = ½ × a × h
+• Круг: S = π × r²
+
+🔹 **Объемы тел:**
+• Куб: V = a³
+• Параллелепипед: V = a × b × c
+• Цилиндр: V = π × r² × h
+""";
+      case 3:
+        return """
+📚 **Математика - Блок 3: Тригонометрия**
+
+🔹 **Основные функции:**
+• sin(α) = противолежащий/гипотенуза
+• cos(α) = прилежащий/гипотенуза
+• tan(α) = sin(α)/cos(α)
+
+🔹 **Основные тождества:**
+• sin²α + cos²α = 1
+• 1 + tan²α = 1/cos²α
+""";
+      case 4:
+        return """
+📚 **Математика - Блок 4: Функции и графики**
+
+🔹 **Виды функций:**
+• Линейная: y = kx + b
+• Квадратичная: y = ax² + bx + c
+• Показательная: y = aˣ
+• Логарифмическая: y = logₐ(x)
+""";
+      case 5:
+        return """
+📚 **Математика - Блок 5: Контрольный блок**
+
+🔹 **Комплексные задания:**
+• Решение систем уравнений
+• Задачи на оптимизацию
+• Применение математики в реальных ситуациях
+• Итоговые тесты
+""";
+      default:
+        return "Теория для блока $blockNumber будет добавлена позже.";
+    }
+  }
+
+  String _getChemistryTheory(int blockNumber) {
+    switch (blockNumber) {
+      case 1:
+        return """
+🧪 **Химия - Блок 1: Основные понятия**
+
+🔹 **Атомы и молекулы:**
+• Атом - наименьшая частица элемента
+• Молекула - наименьшая частица вещества
+• Химическая формула показывает состав вещества
+
+🔹 **Периодическая система:**
+• Группы (вертикальные) - элементы с похожими свойствами
+• Периоды (горизонтальные) - элементы с одинаковым числом электронных оболочек
+
+🔹 **Основные законы:**
+• Закон сохранения массы
+• Закон постоянства состава
+""";
+      case 2:
+        return """
+🧪 **Химия - Блок 2: Классы неорганических соединений**
+
+🔹 **Оксиды:**
+• Основные: взаимодействуют с кислотами
+• Кислотные: взаимодействуют с основаниями
+• Амфотерные: взаимодействуют и с кислотами, и с основаниями
+
+🔹 **Кислоты:**
+• HCl, H₂SO₄, HNO₃
+• Диссоциируют с образованием ионов H⁺
+
+🔹 **Основания:**
+• NaOH, KOH, Ca(OH)₂
+• Диссоциируют с образованием ионов OH⁻
+""";
+      case 3:
+        return """
+🧪 **Химия - Блок 3: Органическая химия**
+
+🔹 **Углеводороды:**
+• Алканы: CₙH₂ₙ₊₂ (простые связи)
+• Алкены: CₙH₂ₙ (одна двойная связь)
+• Алкины: CₙH₂ₙ₋₂ (одна тройная связь)
+
+🔹 **Функциональные группы:**
+• -OH (гидроксильная)
+• -COOH (карбоксильная)
+• -NH₂ (амино)
+""";
+      case 4:
+        return """
+🧪 **Химия - Блок 4: Химические реакции**
+
+🔹 **Типы реакций:**
+• Соединения: A + B → AB
+• Разложения: AB → A + B
+• Замещения: A + BC → AC + B
+• Обмена: AB + CD → AD + CB
+
+🔹 **Скорость реакций:**
+• Зависит от температуры, концентрации, катализатора
+""";
+      case 5:
+        return """
+🧪 **Химия - Блок 5: Контрольный блок**
+
+🔹 **Комплексные задания:**
+• Решение химических задач
+• Экспериментальные задания
+• Теоретические расчеты
+""";
+      default:
+        return "Теория для блока $blockNumber будет добавлена позже.";
+    }
+  }
+
+  String _getEnglishTheory(int blockNumber) {
+    switch (blockNumber) {
+      case 1:
+        return """
+История - XVII век в истории России начался с Смутного времени (1598–1613)
+
+XVII век в истории России начался с Смутного времени (1598–1613) — периода глубокого политического, социального и экономического кризиса. Причинами Смуты стали пресечение династии Рюриковичей, борьба за власть, иностранная интервенция и массовые народные выступления. Завершилась Смута избранием на престол Михаила Фёдоровича Романова в 1613 году, что положило начало новой династии.
+
+В XVII веке происходило укрепление самодержавной власти и централизация государства. Важнейшим законодательным актом стало Соборное уложение 1649 года, которое окончательно закрепило крепостное право, усилило зависимость крестьян от помещиков и закрепило сословную структуру общества.
+
+Социальная напряжённость выливалась в крупные народные восстания, крупнейшим из которых стала крестьянская война под руководством Степана Разина (1670–1671). Внешняя политика России была направлена на расширение территории и укрепление позиций: в результате Переяславской рады 1654 года Левобережная Украина вошла в состав Российского государства.
+""";
+      case 2:
+        return """
+История - Блок 2: XVIII век (Петровские реформы и Российская империя)
+
+XVIII век стал временем кардинальной модернизации России, связанной прежде всего с деятельностью Петра I. Его реформы затронули все сферы жизни: государственное управление, армию, флот, экономику, образование и культуру. Целью реформ было превращение России в сильную европейскую державу.
+
+В ходе Северной войны (1700–1721) Россия одержала победу над Швецией и получила выход к Балтийскому морю. В 1721 году Россия была официально провозглашена империей, а Пётр I принял титул императора. Новой столицей стал Санкт-Петербург, символ «окна в Европу».
+
+Во второй половине XVIII века политика просвещённого абсолютизма проводилась при Екатерине II. Она сочетала идеи Просвещения с сохранением самодержавной власти и крепостного строя. Усиление крепостничества привело к крупнейшему крестьянскому восстанию под предводительством Емельяна Пугачёва (1773–1775), показавшему глубину социальных противоречий в обществе.
+""";
+      case 3:
+        return """
+История - Блок 3: XIX век (Реформы и противоречия развития)
+
+XIX век начался для России Отечественной войной 1812 года, в ходе которой была отражена агрессия наполеоновской Франции. Победа усилила международный авторитет России, но внутренние противоречия сохранились.
+
+В 1825 году произошло восстание декабристов, ставшее первым открытым выступлением против самодержавия. Несмотря на поражение, оно оказало большое влияние на формирование общественно-политической мысли.
+
+Ключевым событием века стала отмена крепостного права в 1861 году при императоре Александре II. Это была важнейшая социально-экономическая реформа, открывшая путь к развитию капиталистических отношений. Однако непоследовательность реформ сохранила многие проблемы.
+
+Поражение в Крымской войне (1853–1856) показало экономическую и военную отсталость России. Во второй половине века при Александре III начался период контрреформ, направленных на усиление самодержавия и ограничение либеральных преобразований.
+""";
+      case 4:
+        return """
+История - Блок 4: XX век (Революции, СССР и распад государства)
+
+XX век стал самым драматичным периодом в истории России. В 1917 году произошли Февральская и Октябрьская революции, приведшие к падению монархии и приходу к власти большевиков. В 1922 году было образовано Союз Советских Социалистических Республик (СССР).
+
+В 1920-е годы проводилась Новая экономическая политика (НЭП), сочетавшая элементы плановой и рыночной экономики. В 1930-е годы начались индустриализация и коллективизация, сопровождавшиеся массовыми репрессиями.
+
+Ключевым событием века стала Великая Отечественная война 1941–1945 гг., в которой СССР одержал победу над нацистской Германией. После войны страна стала одной из мировых сверхдержав.
+
+Во второй половине века СССР столкнулся с системным кризисом. В период правления М. С. Горбачёва проводилась перестройка, направленная на реформирование политической и экономической системы. Итогом кризиса стал распад СССР в 1991 году, завершивший советский этап российской истории.
+""";
+      case 5:
+        return """
+История - Блок 5:
+
+""";
+      default:
+        return "Теория для блока $blockNumber будет добавлена позже.";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final String subjectName = subject == Subject.math
+        ? "Математика"
+        : subject == Subject.chemistry
+        ? "Химия"
+        : "Английский язык";
+
     return DraggableScrollableSheet(
       initialChildSize: 1.0,
       minChildSize: 0.4,
@@ -658,14 +1085,28 @@ class _TheorySheet extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      "Блок $blockNumber — $blockTitle",
-                      style: const TextStyle(
-                        fontFamily: "ClashRoyale",
-                        fontSize: 18,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "$subjectName",
+                          style: const TextStyle(
+                            fontFamily: "ClashRoyale",
+                            fontSize: 16,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          "Блок $blockNumber — $blockTitle",
+                          style: const TextStyle(
+                            fontFamily: "ClashRoyale",
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -675,20 +1116,9 @@ class _TheorySheet extends StatelessWidget {
                 child: SingleChildScrollView(
                   controller: scrollController,
                   padding: const EdgeInsets.all(16),
-                  child: const Text(
-                    """
-ЗДЕСЬ БУДЕТ ТЕОРИЯ ПО БЛОКУ.
-
-Ты можешь вставить сюда большой текст или даже сверстанный материал:
-— Формулы
-— Определения
-— Примеры
-— Иллюстрации
-и всё, что нужно ученику.
-
-Текст автоматически скроллится отдельно от панели.
-""",
-                    style: TextStyle(
+                  child: Text(
+                    _getTheoryContent(subject, blockNumber),
+                    style: const TextStyle(
                       fontFamily: "ClashRoyale",
                       fontSize: 16,
                       color: Colors.white70,

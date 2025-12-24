@@ -22,7 +22,9 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   Future<void> _loadAssets() async {
-    final manifestContent = await DefaultAssetBundle.of(context).loadString('AssetManifest.json');
+    final manifestContent = await DefaultAssetBundle.of(
+      context,
+    ).loadString('AssetManifest.json');
     final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
     setState(() {
@@ -44,204 +46,273 @@ class _ShopScreenState extends State<ShopScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF067D06),
-        centerTitle: true,
-        title: outlinedText('Магазин', fontSize: 20),
-        elevation: 0,
-        actions: [
-          Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
-              ),
-              const SizedBox(width: 4),
-              outlinedText('${state.coins}', fontSize: 16, fillColor: Colors.white),
-              const SizedBox(width: 16),
-            ],
+      body: Stack(
+        children: [
+          // Содержимое магазина
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 88, 16, 16),
+            child: Column(
+              children: [
+                _buildSection(
+                  'Фоны',
+                  backgroundPaths,
+                  state.selectedBackground,
+                  state.ownedBackgrounds,
+                  (path) => state.selectBackground(path),
+                  (path, price) => state.buyBackground(path, price),
+                  rows: 1, // один ряд для фонов
+                ),
+
+                _buildSection(
+                  'Рамки',
+                  framePaths,
+                  state.selectedFrame,
+                  state.ownedFrames,
+                  (path) => state.selectFrame(path),
+                  (path, price) => state.buyFrame(path, price),
+                  rows: 2, // два ряда для рамок
+                ),
+
+                _buildSection(
+                  'Аватары',
+                  avatarPaths,
+                  state.selectedAvatar,
+                  state.ownedAvatars,
+                  (path) => state.selectAvatar(path),
+                  (path, price) => state.buyAvatar(path, price),
+                  rows: 2, // два ряда для аватаров
+                ),
+              ],
+            ),
           ),
+
+          // Верхний HUD, повторяет размеры _topHUD
+          _topShopHUD(context, state),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+    );
+  }
+
+  // ====== Верхний HUD ======
+  Widget _topShopHUD(BuildContext context, GameState state) {
+    final double widgetHeight = 24.0;
+    final Color backgroundColor = const Color(0xFF131F24);
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        color: backgroundColor,
         child: Column(
           children: [
-            _buildSection('Фоны', backgroundPaths, state.selectedBackground,
-                state.ownedBackgrounds, (path) => state.selectBackground(path), (path, price) => state.buyBackground(path, price)),
-            const SizedBox(height: 20),
-            _buildSection('Рамки', framePaths, state.selectedFrame,
-                state.ownedFrames, (path) => state.selectFrame(path), (path, price) => state.buyFrame(path, price)),
-            const SizedBox(height: 20),
-            _buildSection('Аватары', avatarPaths, state.selectedAvatar,
-                state.ownedAvatars, (path) => state.selectAvatar(path), (path, price) => state.buyAvatar(path, price)),
+            SizedBox(
+              height: 88, // общая высота HUD
+              child: Stack(
+                children: [
+                  // Заголовок магазина по центру
+                  Positioned(
+                    top: 52, // чуть выше полосы
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Text(
+                        'Магазин',
+                        style: const TextStyle(
+                          fontFamily: 'ClashRoyale',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Баланс монет справа
+                  Positioned(
+                    top: 52, // на той же высоте, что и заголовок
+                    right: 16,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: widgetHeight,
+                          height: widgetHeight,
+                          child: Image.asset('assets/images/coin.png'),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          state.coins.toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Тонкая серая линия под HUD
+            Container(height: 1, color: Color(0xFF37464F)),
           ],
         ),
       ),
     );
   }
 
+  // ====== Секция товаров ======
   Widget _buildSection(
     String title,
     List<String> paths,
     String selectedPath,
     List<String> ownedPaths,
     Function(String) selectFunc,
-    bool Function(String, int) buyFunc,
-  ) {
+    bool Function(String, int) buyFunc, {
+    int rows = 2, // количество рядов, по умолчанию 2
+  }) {
+    const double bottomHeight = 40; // нижняя часть карточки
+    final double cardHeight =
+        MediaQuery.of(context).size.width / 4 + bottomHeight;
+    final double gridHeight =
+        cardHeight * rows + (rows - 1) * 12; // учитываем spacing
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Center(child: outlinedText(title, fontSize: 20)),
-        ),
-        GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: paths.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.65,
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'ClashRoyale',
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
-          itemBuilder: (context, index) {
-            final path = paths[index];
-            final bool isOwned = ownedPaths.contains(path);
-            final bool isSelected = selectedPath == path;
-            final int price = 100; // можно задать дефолтную цену или хранить мапу цен
+        ),
+        SizedBox(
+          height: gridHeight,
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            itemCount: paths.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1 / 1.3,
+            ),
+            itemBuilder: (context, index) {
+              final path = paths[index];
+              final bool isOwned = ownedPaths.contains(path);
+              final bool isSelected = selectedPath == path;
+              final int price = 100;
 
-            double progress = isOwned ? 1.0 : (Provider.of<GameState>(context, listen: false).coins / price).clamp(0, 1).toDouble();
-
-            return GestureDetector(
-              onTap: () {if (isOwned) {
-                  selectFunc(path);
-                } else {
-                  final success = buyFunc(path, price);
-                  if (success) {
+              return GestureDetector(
+                onTap: () {
+                  if (isOwned) {
                     selectFunc(path);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: outlinedText('Вы купили!', fontSize: 14),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: outlinedText('Недостаточно монет 💰', fontSize: 14),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? Colors.white : const Color(0xFF37464F),
-                    width: isSelected ? 3 : 1.5,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(path, fit: BoxFit.cover),
-                    ),
-                    if (!isOwned)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(12),
+                    final success = buyFunc(path, price);
+                    if (success) {
+                      selectFunc(path);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Вы купили!',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: Colors.green,
                         ),
-                      ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(12),
-                            bottomRight: Radius.circular(12),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Недостаточно монет 💰',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF37464F),
+                      width: isSelected ? 3 : 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
+                          child: Image.asset(
+                            path,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
                           ),
                         ),
-                        child: isOwned
-                            ? outlinedText(
-                                isSelected ? 'Выбран' : 'Доступен',
-                                fontSize: 12,
-                                fillColor: Colors.white70,
+                      ),
+                      Container(
+                        height: bottomHeight,
+                        alignment: Alignment.center,
+                        child: isSelected
+                            ? SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Image.asset(
+                                  'assets/images/icon_is_equipped.png',
+                                ),
                               )
-                            : Column(
+                            : !isOwned
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      outlinedText('$price', fontSize: 12, fillColor: Colors.white),
-                                      const SizedBox(width: 4),
-                                      SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      backgroundColor: const Color(0xFF37464F),
-                                      color: const Color(0xFF58A700),
-                                      minHeight: 6,
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: Image.asset(
+                                      'assets/images/coin.png',
+                                      fit: BoxFit.cover,
                                     ),
                                   ),
-                                ],),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$price',
+                                    style: const TextStyle(
+                                      fontFamily: 'ClashRoyale',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget outlinedText(
-    String text, {
-    Color fillColor = Colors.white,
-    double fontSize = 16,
-    FontWeight fontWeight = FontWeight.bold,
-  }) {
-    return Stack(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'ClashRoyale',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.5
-              ..color = Colors.black,
-          ),
-        ),
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'ClashRoyale',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            color: fillColor,
+              );
+            },
           ),
         ),
       ],
