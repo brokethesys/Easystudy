@@ -4,7 +4,6 @@ import '../data/game_state.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
 import 'achievements_screen.dart';
-import 'profile_screen.dart';
 import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,9 +14,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final PageController _pageController = PageController(initialPage: 1);
-  int _currentPage = 1;
-  double _indicatorPosition = 1.0;
+  final PageController _pageController = PageController(initialPage: 0);
+  int _currentPage = 0;
+  double _indicatorPosition = 0.0;
 
   @override
   void initState() {
@@ -26,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _indicatorPosition = ((_pageController.page ?? _currentPage).clamp(
           0.0,
-          3.0,
+          2.0,
         )).toDouble();
       });
     });
@@ -49,13 +48,12 @@ class _HomeScreenState extends State<HomeScreen> {
     context.watch<GameState>();
 
     final icons = [
-      'assets/images/icons/icon_profile.png',
       'assets/images/icons/icon_shop.png',
       'assets/images/icons/icon_map.png',
       'assets/images/icons/icon_achievements.png',
     ];
 
-    const labels = ['Профиль', 'Магазин', 'Уровни', 'Достижения'];
+    const labels = ['Магазин', 'Уровни', 'Достижения'];
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 67, 91, 112),
@@ -63,7 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
         controller: _pageController,
         onPageChanged: _onPageChanged,
         children: const [
-          ProfileScreen(),
           ShopScreen(),
           MapScreen(),
           AchievementsScreen(),
@@ -90,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: Row(
-        children: List.generate(4, (i) {
+        children: List.generate(3, (i) {
           final bool active = _currentPage == i;
           bool isPressed = false;
 
@@ -123,8 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Center(
                       child: Image.asset(
                         icons[i],
-                        width: 40, // ⬅ увеличили размер
-                        height: 40, // ⬅ увеличили размер
+                        width: 40,
+                        height: 40,
                       ),
                     ),
                   ),

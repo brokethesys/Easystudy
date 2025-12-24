@@ -9,36 +9,103 @@ class AchievementsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
 
+    // Функции для вычисления прогресса (изначально 0, но логика работает)
+    int getTotalScore() {
+      // В будущем можно будет считать общий счет из пройденных уровней
+      return 0;
+    }
+
+    int getPerfectLevelsCount() {
+      // В будущем можно будет считать идеально пройденные уровни
+      return 0;
+    }
+
+    int getDaysInRow() {
+      // В будущем можно будет считать дни подряд
+      return 0;
+    }
+
+    int getTotalStars() {
+      // В будущем можно будет считать общее количество звезд
+      return 0;
+    }
+
+    int getTotalPlayTime() {
+      // В будущем можно будет считать общее время игры (в минутах)
+      return 0;
+    }
+
     final achievements = [
       {
         "title": "Пройти 3 уровня",
         "progress": gameState.completedLevels.length,
         "goal": 3,
         "reward": 50,
+        "description": "Завершите прохождение 3 уровней",
       },
       {
         "title": "Пройти 5 уровней",
         "progress": gameState.completedLevels.length,
         "goal": 5,
         "reward": 75,
+        "description": "Завершите прохождение 5 уровней",
       },
       {
         "title": "Открыть 5 фонов",
         "progress": gameState.ownedBackgrounds.length,
         "goal": 5,
         "reward": 100,
+        "description": "Соберите коллекцию из 5 различных фонов",
       },
       {
         "title": "Заработать 500 монет",
         "progress": gameState.coins,
         "goal": 500,
         "reward": 120,
+        "description": "Накопите 500 монет",
       },
       {
         "title": "Пройти все 10 уровней",
         "progress": gameState.completedLevels.length,
         "goal": 10,
         "reward": 200,
+        "description": "Завершите все 10 уровней игры",
+      },
+      // Новые достижения с нулевым прогрессом
+      {
+        "title": "Набрать 1000 очков",
+        "progress": getTotalScore(),
+        "goal": 1000,
+        "reward": 150,
+        "description": "Наберите в сумме 1000 очков во всех уровнях",
+      },
+      {
+        "title": "Идеально пройти 3 уровня",
+        "progress": getPerfectLevelsCount(),
+        "goal": 3,
+        "reward": 175,
+        "description": "Завершите 3 уровня с максимальным рейтингом",
+      },
+      {
+        "title": "Играть 7 дней подряд",
+        "progress": getDaysInRow(),
+        "goal": 7,
+        "reward": 200,
+        "description": "Заходите в игру 7 дней подряд",
+      },
+      {
+        "title": "Собрать 50 звезд",
+        "progress": getTotalStars(),
+        "goal": 50,
+        "reward": 250,
+        "description": "Соберите в общей сложности 50 звезд",
+      },
+      {
+        "title": "Провести 60 минут в игре",
+        "progress": getTotalPlayTime(),
+        "goal": 60,
+        "reward": 300,
+        "description": "Проведите в игре более 60 минут",
       },
     ];
 
@@ -60,7 +127,7 @@ class AchievementsScreen extends StatelessWidget {
     }
 
     return Container(
-      color: const Color(0xFF131F24), // ← статичный фон
+      color: const Color(0xFF131F24),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -89,6 +156,7 @@ class AchievementsScreen extends StatelessWidget {
                     final progress = ach["progress"] as int;
                     final goal = ach["goal"] as int;
                     final reward = ach["reward"] as int;
+                    final description = ach["description"] as String;
                     final percent = (progress / goal).clamp(0.0, 1.0);
                     final completed = percent >= 1.0;
                     final collected = gameState.isAchievementCollected(index);
@@ -97,10 +165,10 @@ class AchievementsScreen extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF131F24), // ← статичный фон
+                        color: const Color(0xFF131F24),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF37464F), // ← обводка ячейки
+                          color: const Color(0xFF37464F),
                           width: 2,
                         ),
                         boxShadow: [
@@ -114,13 +182,49 @@ class AchievementsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  ach["title"] as String,
+                                  style: const TextStyle(
+                                    fontFamily: 'ClashRoyale',
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              if (index >= 5) // Новые достижения помечаем как "новые"
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    "НОВОЕ",
+                                    style: TextStyle(
+                                      fontFamily: 'ClashRoyale',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 4),
+
                           Text(
-                            ach["title"] as String,
+                            description,
                             style: const TextStyle(
                               fontFamily: 'ClashRoyale',
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              fontSize: 12,
+                              color: Color(0xFF9E9E9E),
                             ),
                           ),
 
@@ -138,12 +242,9 @@ class AchievementsScreen extends StatelessWidget {
                                       Container(
                                         height: 20,
                                         decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF37464F,
-                                          ), // ← статичный тёмно-серо-синий фон
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
+                                          color: const Color(0xFF37464F),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                         ),
                                       ),
                                       LayoutBuilder(
@@ -155,7 +256,7 @@ class AchievementsScreen extends StatelessWidget {
                                             decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(10),
-                                              color: const Color(0xFF58A700), // всегда зелёный
+                                              color: const Color(0xFF58A700),
                                             ),
                                           );
                                         },
@@ -166,13 +267,22 @@ class AchievementsScreen extends StatelessWidget {
                                             collected
                                                 ? "Награда получена"
                                                 : completed
-                                                ? "Получить награду"
-                                                : "$progress/$goal",
-                                            style: const TextStyle(
+                                                    ? "Получить награду"
+                                                    : "$progress/$goal",
+                                            style: TextStyle(
                                               fontFamily: 'ClashRoyale',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.white,
+                                              shadows: progress == 0
+                                                  ? [
+                                                      Shadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.8),
+                                                        blurRadius: 2,
+                                                      )
+                                                    ]
+                                                  : null,
                                             ),
                                           ),
                                         ),
@@ -192,16 +302,22 @@ class AchievementsScreen extends StatelessWidget {
                                     child: Image.asset(
                                       'assets/images/coin.png',
                                       fit: BoxFit.cover,
+                                      color: collected
+                                          ? Colors.grey[600]
+                                          : Colors.white,
+                                      colorBlendMode: BlendMode.modulate,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     "+$reward",
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'ClashRoyale',
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                      color: collected
+                                          ? Colors.grey[600]
+                                          : Colors.white,
                                     ),
                                   ),
                                 ],
