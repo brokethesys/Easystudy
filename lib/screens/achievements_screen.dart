@@ -117,7 +117,7 @@ class AchievementsScreen extends StatelessWidget {
       // Прогресс по английскому
       {
         "title": "Лингвист-новичок",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.english),
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.history),
         "goal": 3,
         "reward": 80,
         "description": "Пройти 3 уровня по английскому (без учета 1-го уровня)",
@@ -125,7 +125,7 @@ class AchievementsScreen extends StatelessWidget {
       },
       {
         "title": "Лингвист-эксперт",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.english),
+        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.history),
         "goal": 5,
         "reward": 150,
         "description": "Пройти 5 уровней по английскому (без учета 1-го уровня)",
@@ -133,7 +133,7 @@ class AchievementsScreen extends StatelessWidget {
       },
       {
         "title": "Мастер английского",
-        "progress": gameState.getCurrentMaxLevel(Subject.english),
+        "progress": gameState.getCurrentMaxLevel(Subject.history),
         "goal": 10,
         "reward": 300,
         "description": "Достигнуть 10 уровня в английском",
@@ -332,7 +332,7 @@ class AchievementsScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          gameState.getCompletedLevelsCountWithoutFirst(Subject.english).toString(),
+                          gameState.getCompletedLevelsCountWithoutFirst(Subject.history).toString(),
                           style: const TextStyle(
                             fontFamily: 'ClashRoyale',
                             fontSize: 16,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Простой HTTP сервер для вопросов викторины
+Простой HTTP сервер для вопросов викторины и теории
 Запуск: python server.py
 Порт: 8080
 """
@@ -17,6 +17,7 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
     
     def __init__(self, *args, **kwargs):
         self.questions = self._load_questions()
+        self.theory = self._load_theory()
         super().__init__(*args, **kwargs)
     
     def _set_headers(self, status_code=200):
@@ -72,6 +73,34 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
         print(f"📚 Предметы в базе: {subjects}")
         
         return all_questions
+    
+    def _load_theory(self):
+        """Загружает теорию из нескольких JSON файлов"""
+        theory_files = [
+            'theory_chemistry.json',
+            'theory_math.json', 
+            'theory_history.json'
+        ]
+        
+        all_theory = []
+        
+        for filename in theory_files:
+            try:
+                if os.path.exists(filename):
+                    with open(filename, 'r', encoding='utf-8') as f:
+                        theory = json.load(f)
+                        all_theory.extend(theory)
+                        print(f"✅ Загружено {len(theory)} блоков теории из {filename}")
+                else:
+                    print(f"⚠️  Файл теории {filename} не найден")
+                    
+            except json.JSONDecodeError as e:
+                print(f"❌ Ошибка чтения теории {filename}: {e}")
+            except Exception as e:
+                print(f"❌ Неожиданная ошибка при загрузке теории {filename}: {e}")
+        
+        print(f"📚 Всего загружено {len(all_theory)} блоков теории")
+        return all_theory
     
     def _get_subjects(self):
         """Возвращает список уникальных предметов"""
@@ -133,6 +162,33 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
         
         return random.choice(filtered_questions)
     
+    def _get_theory_by_subject(self, subject):
+        """Возвращает теорию по предмету"""
+        return [t for t in self.theory if t['subject'] == subject]
+    
+    def _get_theory_by_subject_and_block(self, subject, block_number):
+        """Возвращает теорию по предмету и номеру блока"""
+        for theory in self.theory:
+            if theory['subject'] == subject and theory['block_number'] == block_number:
+                return theory
+        return None
+    
+    def _get_theory_stats(self):
+        """Возвращает статистику по теории"""
+        stats = {
+            "total_blocks": len(self.theory),
+            "subjects": {}
+        }
+        
+        for subject in self._get_subjects():
+            subject_theory = [t for t in self.theory if t['subject'] == subject]
+            stats["subjects"][subject] = {
+                "count": len(subject_theory),
+                "blocks": sorted(list(set([t['block_number'] for t in subject_theory])))
+            }
+        
+        return stats
+    
     def _get_quiz_stats(self):
         """Возвращает статистику по вопросам"""
         stats = {
@@ -182,17 +238,23 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                     "timestamp": datetime.now().isoformat(),
                     "server_ip": self._get_server_ip(),
                     "total_questions": len(self.questions),
+                    "total_theory_blocks": len(self.theory),
                     "subjects": self._get_subjects(),
                     "endpoints": {
                         "/subjects": "Список всех предметов",
                         "/categories": "Все категории",
                         "/stats": "Статистика вопросов",
+                        "/stats/theory": "Статистика теории",
                         "/questions": "Все вопросы (можно фильтровать)",
                         "/questions/subject/{subject}": "Вопросы по предмету",
+                        "/questions/ordered/{subject}": "Вопросы по предмету в порядке ID",
                         "/questions/subject/{subject}/category/{category}": "Вопросы по предмету и категории",
                         "/question/{id}": "Вопрос по ID",
                         "/question/random": "Случайный вопрос",
                         "/quiz/{subject}/{count}": "Готовый тест из N вопросов",
+                        "/theory": "Вся теория",
+                        "/theory/subject/{subject}": "Теория по предмету",
+                        "/theory/subject/{subject}/block/{block}": "Теория по предмету и блоку",
                         "/check": "POST: проверить ответ (тело: question_id, user_answer)"
                     }
                 }
@@ -218,6 +280,10 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
             elif path == '/stats':
                 # Статистика по вопросам
                 response = self._get_quiz_stats()
+            
+            elif path == '/stats/theory':
+                # Статистика по теории
+                response = self._get_theory_stats()
             
             elif path == '/questions':
                 # Все вопросы с возможностью фильтрации
@@ -261,6 +327,44 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                         "shuffled": shuffle
                     }
                 }
+            
+            elif path.startswith('/questions/ordered/'):
+                # Вопросы по предмету В ПОРЯДКЕ ID (без перемешивания)
+                parts = path.split('/')
+                if len(parts) >= 4:
+                    encoded_subject = parts[3]
+                    subject = unquote(encoded_subject)
+                    
+                    limit = query_params.get('limit', [None])[0]
+                    
+                    subject_questions = self._get_questions_by_subject(
+                        subject,
+                        limit=int(limit) if limit and limit.isdigit() else None,
+                        shuffle=False  # НЕ перемешиваем для порядка!
+                    )
+                    
+                    # Сортируем по ID для гарантии порядка
+                    subject_questions.sort(key=lambda x: x['id'])
+                    
+                    # Убираем правильный ответ для клиента
+                    questions_for_client = []
+                    for q in subject_questions:
+                        safe_q = q.copy()
+                        if 'correct' in safe_q:
+                            del safe_q['correct']
+                        if 'explanation' in safe_q:
+                            del safe_q['explanation']
+                        questions_for_client.append(safe_q)
+                    
+                    response = {
+                        "subject": subject,
+                        "questions": questions_for_client,
+                        "count": len(subject_questions),
+                        "ordered": True
+                    }
+                else:
+                    response = {"error": "Не указан предмет"}
+                    self._set_headers(400)
             
             elif path.startswith('/questions/subject/'):
                 # Вопросы по предмету
@@ -414,6 +518,63 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                     response = {"error": "Укажите предмет и количество вопросов: /quiz/{subject}/{count}"}
                     self._set_headers(400)
             
+            # ===== НОВЫЕ ЭНДПОИНТЫ ДЛЯ ТЕОРИИ =====
+            elif path == '/theory':
+                # Вся теория
+                subject = query_params.get('subject', [None])[0]
+                block_number = query_params.get('block', [None])[0]
+                
+                filtered_theory = self.theory
+                
+                if subject:
+                    filtered_theory = [t for t in filtered_theory if t['subject'] == subject]
+                
+                if block_number and block_number.isdigit():
+                    block_int = int(block_number)
+                    filtered_theory = [t for t in filtered_theory if t['block_number'] == block_int]
+                
+                response = {
+                    "theory": filtered_theory,
+                    "count": len(filtered_theory)
+                }
+            
+            elif path.startswith('/theory/subject/'):
+                parts = path.split('/')
+                if len(parts) >= 4:
+                    encoded_subject = parts[3]
+                    subject = unquote(encoded_subject)
+                    
+                    # Проверяем, есть ли номер блока
+                    if len(parts) >= 6 and parts[4] == 'block':
+                        try:
+                            block_number = int(parts[5])
+                            theory = self._get_theory_by_subject_and_block(subject, block_number)
+                            
+                            if theory:
+                                response = {"theory": theory}
+                            else:
+                                response = {"error": f"Теория для предмета '{subject}', блока {block_number} не найдена"}
+                                self._set_headers(404)
+                        except ValueError:
+                            response = {"error": "Неверный формат номера блока"}
+                            self._set_headers(400)
+                    else:
+                        # Только предмет
+                        subject_theory = self._get_theory_by_subject(subject)
+                        
+                        if subject_theory:
+                            response = {
+                                "subject": subject,
+                                "theory": subject_theory,
+                                "count": len(subject_theory)
+                            }
+                        else:
+                            response = {"error": f"Теория для предмета '{subject}' не найдена"}
+                            self._set_headers(404)
+                else:
+                    response = {"error": "Не указан предмет"}
+                    self._set_headers(400)
+            
             else:
                 # Неизвестный путь
                 response = {
@@ -421,8 +582,12 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                     "available_endpoints": [
                         "/subjects",
                         "/questions",
+                        "/questions/ordered/{subject}",
                         "/question/random",
-                        "/quiz/{subject}/{count}"
+                        "/quiz/{subject}/{count}",
+                        "/theory",
+                        "/theory/subject/{subject}",
+                        "/theory/subject/{subject}/block/{block}"
                     ]
                 }
                 self._set_headers(404)
@@ -526,7 +691,7 @@ def run_server(host='0.0.0.0', port=8080):
     httpd = HTTPServer(server_address, QuizRequestHandler)
     
     print("=" * 60)
-    print("🚀 EasyStudy Quiz API Server")
+    print("🚀 EasyStudy Quiz & Theory API Server")
     print("=" * 60)
     print(f"📡 Сервер запущен на:")
     print(f"   Локально: http://localhost:{port}")
@@ -538,13 +703,19 @@ def run_server(host='0.0.0.0', port=8080):
     except:
         pass
     
-    print("\n📚 Основные эндпоинты:")
-    print("   GET  /subjects              - список предметов")
-    print("   GET  /questions             - все вопросы")
+    print("\n📚 Основные эндпоинты для вопросов:")
+    print("   GET  /subjects                    - список предметов")
+    print("   GET  /questions                   - все вопросы")
+    print("   GET  /questions/ordered/{subject} - вопросы по предмету В ПОРЯДКЕ")
     print("   GET  /questions/subject/{subject} - вопросы по предмету")
-    print("   GET  /question/random       - случайный вопрос")
-    print("   GET  /quiz/{subject}/{N}   - тест из N вопросов")
-    print("   POST /                      - проверить ответ")
+    print("   GET  /question/random             - случайный вопрос")
+    print("   GET  /quiz/{subject}/{N}         - тест из N вопросов")
+    print("   POST /check                       - проверить ответ")
+    
+    print("\n📖 Основные эндпоинты для теории:")
+    print("   GET  /theory                      - вся теория")
+    print("   GET  /theory/subject/{subject}    - теория по предмету")
+    print("   GET  /theory/subject/{subject}/block/{block} - теория по предмету и блоку")
     
     print("\n⚙️  Параметры запросов:")
     print("   ?limit=10        - ограничить количество")
@@ -552,8 +723,9 @@ def run_server(host='0.0.0.0', port=8080):
     print("   ?subject=Math    - фильтр по предмету")
     
     print("\n📊 Для тестирования в браузере:")
-    print(f"   http://localhost:{port}/questions/subject/Chemistry")
-    print(f"   http://localhost:{port}/quiz/Math/5")
+    print(f"   http://localhost:{port}/questions/ordered/Math")
+    print(f"   http://localhost:{port}/theory/subject/Chemistry")
+    print(f"   http://localhost:{port}/theory/subject/Math/block/1")
     print(f"   http://localhost:{port}/subjects")
     
     print("\n🛑 Для остановки сервера нажмите Ctrl+C")
@@ -576,56 +748,95 @@ if __name__ == '__main__':
             missing_files.append(filename)
     
     if missing_files:
-        print("⚠️  Внимание: не найдены следующие файлы:")
+        print("⚠️  Внимание: не найдены следующие файлы с вопросами:")
         for filename in missing_files:
             print(f"   - {filename}")
+    
+    # Проверяем наличие файлов с теорией
+    theory_files = ['theory_chemistry.json', 'theory_math.json', 'theory_history.json']
+    missing_theory = []
+    
+    for filename in theory_files:
+        if not os.path.exists(filename):
+            missing_theory.append(filename)
+    
+    if missing_theory:
+        print("⚠️  Внимание: не найдены следующие файлы с теорией:")
+        for filename in missing_theory:
+            print(f"   - {filename}")
+    
+    if missing_files or missing_theory:
         print("Убедитесь, что находитесь в правильной папке.")
         print(f"Текущая папка: {os.getcwd()}")
         
-        create_sample = input("\nСоздать пример файлов? (y/n): ")
+        create_sample = input("\nСоздать недостающие файлы? (y/n): ")
         if create_sample.lower() == 'y':
-            # Создаем пример файлов
-            for filename in missing_files:
-                sample_data = []
-                if filename == 'chemistry.json':
-                    sample_data = [{
-                        "id": 1,
-                        "subject": "Chemistry",
-                        "category": "atomic_structure",
-                        "question": "Кто открыл периодический закон химических элементов?",
-                        "options": ["Менделеев", "Бор", "Резерфорд", "Лавуазье"],
-                        "correct": 0,
-                        "difficulty": 1,
-                        "explanation": "Д.И. Менделеев открыл периодический закон в 1869 году"
-                    }]
-                elif filename == 'math.json':
-                    sample_data = [{
-                        "id": 26,
-                        "subject": "Math",
-                        "category": "linear_algebra",
-                        "question": "Что такое матрица?",
-                        "options": ["Прямоугольная таблица чисел", "Функция двух переменных", "Скалярное произведение", "Дифференциальное уравнение"],
-                        "correct": 0,
-                        "difficulty": 1,
-                        "explanation": "Матрица — это прямоугольная таблица чисел, символов или выражений"
-                    }]
-                elif filename == 'history.json':
-                    sample_data = [{
-                        "id": 51,
-                        "subject": "History",
-                        "category": "17_century",
-                        "question": "Какой период истории России называют Смутным временем?",
-                        "options": ["1605–1613", "1598–1613", "1613–1649", "1584–1598"],
-                        "correct": 1,
-                        "difficulty": 2,
-                        "explanation": "Смутное время — период с 1598 по 1613 год"
-                    }]
+            # Создаем недостающие файлы
+            for filename in missing_files + missing_theory:
+                if filename in missing_files:
+                    # Создаем пример файлов с вопросами
+                    if filename == 'chemistry.json':
+                        sample_data = [{
+                            "id": 1,
+                            "subject": "Chemistry",
+                            "category": "atomic_structure",
+                            "question": "Кто открыл периодический закон химических элементов?",
+                            "options": ["Менделеев", "Бор", "Резерфорд", "Лавуазье"],
+                            "correct": 0,
+                            "difficulty": 1,
+                            "explanation": "Д.И. Менделеев открыл периодический закон в 1869 году"
+                        }]
+                    elif filename == 'math.json':
+                        sample_data = [{
+                            "id": 26,
+                            "subject": "Math",
+                            "category": "linear_algebra",
+                            "question": "Что такое матрица?",
+                            "options": ["Прямоугольная таблица чисел", "Функция двух переменных", "Скалярное произведение", "Дифференциальное уравнение"],
+                            "correct": 0,
+                            "difficulty": 1,
+                            "explanation": "Матрица — это прямоугольная таблица чисел, символов или выражений"
+                        }]
+                    elif filename == 'history.json':
+                        sample_data = [{
+                            "id": 51,
+                            "subject": "History",
+                            "category": "17_century",
+                            "question": "Какой период истории России называют Смутным временем?",
+                            "options": ["1605–1613", "1598–1613", "1613–1649", "1584–1598"],
+                            "correct": 1,
+                            "difficulty": 2,
+                            "explanation": "Смутное время — период с 1598 по 1613 год"
+                        }]
+                else:
+                    # Создаем пример файлов с теорией
+                    if filename == 'theory_chemistry.json':
+                        sample_data = [{
+                            "block_number": 1,
+                            "subject": "Chemistry",
+                            "title": "Атомное строение вещества и периодический закон",
+                            "content": "Теория по химии для блока 1..."
+                        }]
+                    elif filename == 'theory_math.json':
+                        sample_data = [{
+                            "block_number": 1,
+                            "subject": "Math",
+                            "title": "Линейная алгебра",
+                            "content": "Теория по математике для блока 1..."
+                        }]
+                    elif filename == 'theory_history.json':
+                        sample_data = [{
+                            "block_number": 1,
+                            "subject": "History",
+                            "title": "XVII век в истории России",
+                            "content": "Теория по истории для блока 1..."
+                        }]
                 
                 with open(filename, 'w', encoding='utf-8') as f:
                     json.dump(sample_data, f, ensure_ascii=False, indent=2)
                 print(f"✅ Создан пример {filename}")
     else:
-        print("✅ Все файлы с вопросами найдены")
+        print("✅ Все файлы найдены")
     
     # Запускаем сервер
     run_server(host='0.0.0.0', port=8080)

@@ -99,7 +99,7 @@ class _QuizScreenState extends State<QuizScreen> {
         return 'Chemistry';
       case Subject.math:
         return 'Math';
-      case Subject.english:
+      case Subject.history:
         return 'History';
     }
   }
@@ -129,7 +129,7 @@ class _QuizScreenState extends State<QuizScreen> {
           "subject": "Math",
           "category": "fallback",
         };
-      case Subject.english:
+      case Subject.history:
         return {
           "question": "В каком году началась Вторая мировая война?",
           "options": ["1937", "1939", "1941", "1945"],

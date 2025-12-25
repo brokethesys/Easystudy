@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../audio/audio_manager.dart'; // Добавьте этот импорт
 
-enum Subject { chemistry, math, english }
+enum Subject { chemistry, math, history}
 
 class GameState extends ChangeNotifier {
   // === Общие настройки ===
   bool soundEnabled;
   bool musicEnabled;
   bool vibrationEnabled;
+  double musicVolume; // Добавили регулировку громкости
 
   int playerLevel;
   int currentXP;
@@ -38,6 +40,7 @@ class GameState extends ChangeNotifier {
     this.soundEnabled = true,
     this.musicEnabled = true,
     this.vibrationEnabled = true,
+    this.musicVolume = 0.7,
     this.playerLevel = 1,
     this.currentXP = 0,
     this.coins = 0,
@@ -56,19 +59,31 @@ class GameState extends ChangeNotifier {
             {
               Subject.chemistry: 1,
               Subject.math: 1,
-              Subject.english: 1,
+              Subject.history: 1,
             },
         completedLevels = completedLevels ??
             {
               Subject.chemistry: {},
               Subject.math: {},
-              Subject.english: {},
+              Subject.history: {},
             },
         ownedBackgrounds = ownedBackgrounds ??
             ['blue', 'green', 'purple', 'orange'],
         ownedFrames = ownedFrames ?? ['default'],
         ownedAvatars = ownedAvatars ?? ['default'],
-        collectedAchievements = collectedAchievements ?? {};
+        collectedAchievements = collectedAchievements ?? {} {
+    // Инициализируем AudioManager с текущими настройками
+    _initializeAudio();
+  }
+
+  // Инициализация аудио системы
+  void _initializeAudio() async {
+    await AudioManager().initialize();
+    // Синхронизируем настройки с AudioManager
+    AudioManager().setSoundEnabled(soundEnabled);
+    AudioManager().setMusicEnabled(musicEnabled);
+    AudioManager().setMusicVolume(musicVolume);
+  }
 
   // === Константы ===
   int get xpForNextLevel => 150;
@@ -84,14 +99,11 @@ class GameState extends ChangeNotifier {
 
   // === Вспомогательные методы для достижений ===
   
-  // Метод для получения количества пройденных уровней без учета первых уровней
   int getCompletedLevelsCountWithoutFirst(Subject subject) {
     final completed = completedLevels[subject] ?? {};
-    // Исключаем уровень 1 из подсчета
     return completed.where((level) => level > 0).length;
   }
   
-  // Общее количество пройденных уровней
   int get totalCompletedLevels {
     int total = 0;
     for (var subject in Subject.values) {
@@ -100,7 +112,6 @@ class GameState extends ChangeNotifier {
     return total;
   }
   
-  // Получение текущего максимального уровня по предмету
   int getCurrentMaxLevel(Subject subject) {
     final completed = completedLevels[subject] ?? {};
     return completed.isNotEmpty ? completed.reduce((a, b) => a > b ? a : b) : 0;
@@ -113,7 +124,7 @@ class GameState extends ChangeNotifier {
     Map<Subject, int> loadLevels() => {
           Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
           Subject.math: prefs.getInt('math_level') ?? 1,
-          Subject.english: prefs.getInt('history_level') ?? 1,
+          Subject.history: prefs.getInt('history_level') ?? 1,
         };
 
     Map<Subject, Set<int>> loadCompleted() => {
@@ -123,7 +134,7 @@ class GameState extends ChangeNotifier {
           Subject.math: (prefs.getStringList('math_completed') ?? [])
               .map(int.parse)
               .toSet(),
-          Subject.english: (prefs.getStringList('history_completed') ?? [])
+          Subject.history: (prefs.getStringList('history_completed') ?? [])
               .map(int.parse)
               .toSet(),
         };
@@ -138,6 +149,7 @@ class GameState extends ChangeNotifier {
       soundEnabled: prefs.getBool('soundEnabled') ?? true,
       musicEnabled: prefs.getBool('musicEnabled') ?? true,
       vibrationEnabled: prefs.getBool('vibrationEnabled') ?? true,
+      musicVolume: prefs.getDouble('musicVolume') ?? 0.7,
       playerLevel: prefs.getInt('playerLevel') ?? 1,
       currentXP: prefs.getInt('currentXP') ?? 0,
       coins: prefs.getInt('coins') ?? 0,
@@ -166,6 +178,7 @@ class GameState extends ChangeNotifier {
     await prefs.setBool('soundEnabled', soundEnabled);
     await prefs.setBool('musicEnabled', musicEnabled);
     await prefs.setBool('vibrationEnabled', vibrationEnabled);
+    await prefs.setDouble('musicVolume', musicVolume);
     await prefs.setInt('playerLevel', playerLevel);
     await prefs.setInt('currentXP', currentXP);
     await prefs.setInt('coins', coins);
@@ -173,7 +186,7 @@ class GameState extends ChangeNotifier {
     await prefs.setString('currentSubject', currentSubject.name);
     await prefs.setInt('chemistry_level', currentLevels[Subject.chemistry]!);
     await prefs.setInt('math_level', currentLevels[Subject.math]!);
-    await prefs.setInt('english_level', currentLevels[Subject.english]!);
+    await prefs.setInt('history_level', currentLevels[Subject.history]!);
 
     await prefs.setStringList(
         'chemistry_completed',
@@ -182,8 +195,8 @@ class GameState extends ChangeNotifier {
             .toList());
     await prefs.setStringList('math_completed',
         completedLevels[Subject.math]!.map((e) => e.toString()).toList());
-    await prefs.setStringList('english_completed',
-        completedLevels[Subject.english]!.map((e) => e.toString()).toList());
+    await prefs.setStringList('history_completed',
+        completedLevels[Subject.history]!.map((e) => e.toString()).toList());
 
     await prefs.setStringList('ownedBackgrounds', ownedBackgrounds);
     await prefs.setString('selectedBackground', selectedBackground);
@@ -200,6 +213,34 @@ class GameState extends ChangeNotifier {
     );
 
     await prefs.setString('nickname', nickname);
+  }
+
+  // === Сеттеры для настроек звука ===
+  set setSoundEnabled(bool value) {
+    soundEnabled = value;
+    AudioManager().setSoundEnabled(value);
+    notifyListeners();
+    save();
+  }
+
+  set setMusicEnabled(bool value) {
+    musicEnabled = value;
+    AudioManager().setMusicEnabled(value);
+    notifyListeners();
+    save();
+  }
+
+  set setVibrationEnabled(bool value) {
+    vibrationEnabled = value;
+    notifyListeners();
+    save();
+  }
+
+  set setMusicVolume(double value) {
+    musicVolume = value.clamp(0.0, 1.0);
+    AudioManager().setMusicVolume(value);
+    notifyListeners();
+    save();
   }
 
   // === Переключение предмета ===
@@ -225,7 +266,6 @@ class GameState extends ChangeNotifier {
     final subject = currentSubject;
     completedLevels[subject]!.add(levelNumber);
     
-    // Обновляем текущий уровень только если он меньше, чем пройденный + 1
     if (currentLevels[subject]! <= levelNumber) {
       currentLevels[subject] = levelNumber + 1;
     }
@@ -254,6 +294,14 @@ class GameState extends ChangeNotifier {
       ownedAvatars = ['default'];
       selectedAvatar = 'default';
       collectedAchievements.clear();
+      // Сброс настроек аудио к значениям по умолчанию
+      soundEnabled = true;
+      musicEnabled = true;
+      vibrationEnabled = true;
+      musicVolume = 0.7;
+      AudioManager().setSoundEnabled(true);
+      AudioManager().setMusicEnabled(true);
+      AudioManager().setMusicVolume(0.7);
     }
     notifyListeners();
     await save();
@@ -331,5 +379,12 @@ class GameState extends ChangeNotifier {
       notifyListeners();
       save();
     }
+  }
+
+  // === Жизненный цикл ===
+  @override
+  void dispose() {
+    AudioManager().dispose();
+    super.dispose();
   }
 }
