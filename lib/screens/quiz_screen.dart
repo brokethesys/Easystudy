@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart'; // для currentBackground
@@ -13,17 +14,21 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
-  Map<String, dynamic> question = {}; // Инициализировано пустой картой вместо late
+  Map<String, dynamic> question = {};
+  List<String> _shuffledOptions = []; // Перемешанные варианты ответов
+  List<int> _optionMapping = []; // Маппинг перемешанных индексов к оригинальным
   int? selectedIndex;
   int? correctAnswerIndex;
+  int? _originalCorrectIndex; // Исходный индекс правильного ответа
   bool answered = false;
   Color backgroundColor = Colors.blue;
   bool isLoading = false;
   String error = '';
   bool _shouldAutoClose = false;
-  int _attemptsLeft = 2; // 2 попытки (первая + 1 повторная)
+  int _attemptsLeft = 2;
   bool _showRetryButton = false;
-  String _hintText = ''; // Текстовая подсказка
+  String _hintText = '';
+  Random _random = Random();
 
   @override
   void initState() {
@@ -35,6 +40,37 @@ class _QuizScreenState extends State<QuizScreen> {
     _loadQuestionFromServer();
   }
 
+  // Метод для перемешивания вариантов ответов
+  void _shuffleOptions(List<String> options, int correctAnswerIndex) {
+    // Создаем массив индексов: [0, 1, 2, 3]
+    List<int> indices = List.generate(options.length, (index) => index);
+
+    // Перемешиваем индексы
+    indices.shuffle(_random);
+
+    // Создаем перемешанные варианты ответов
+    _shuffledOptions = indices.map((index) => options[index]).toList();
+
+    // Находим, где теперь находится правильный ответ
+    for (int i = 0; i < indices.length; i++) {
+      if (indices[i] == correctAnswerIndex) {
+        this.correctAnswerIndex = i;
+        break;
+      }
+    }
+
+    // Сохраняем маппинг перемешанных индексов к оригинальным
+    _optionMapping = indices;
+
+    print('📊 Варианты ответов перемешаны:');
+    print('   Исходные варианты: $options');
+    print('   Перемешанные варианты: $_shuffledOptions');
+    print('   Маппинг индексов: $_optionMapping');
+    print(
+      '   Правильный ответ был на позиции $correctAnswerIndex, теперь на ${this.correctAnswerIndex}',
+    );
+  }
+
   Future<void> _loadQuestionFromServer() async {
     setState(() {
       isLoading = true;
@@ -42,6 +78,9 @@ class _QuizScreenState extends State<QuizScreen> {
       selectedIndex = null;
       answered = false;
       correctAnswerIndex = null;
+      _originalCorrectIndex = null;
+      _shuffledOptions = [];
+      _optionMapping = [];
       _attemptsLeft = 2;
       _showRetryButton = false;
       _hintText = '';
@@ -59,28 +98,56 @@ class _QuizScreenState extends State<QuizScreen> {
         throw Exception('Нет подключения к серверу. Запустите Python сервер.');
       }
 
-      final questions = await ApiService.getQuestionsBySubject(
+      // ВАЖНО: запрашиваем упорядоченные вопросы (без перемешивания)
+      final questions = await ApiService.getOrderedQuestionsBySubject(
         subjectString,
-        limit: 50,
-        shuffle: false,
+        limit: 50, // Достаточно для всех уровней
       );
 
       if (questions.isEmpty) {
         throw Exception('Нет вопросов по предмету $subjectString');
       }
 
+      // Определяем, к какому блоку относится уровень
+      // Уровни 1-6: блок 1, уровни 7-12: блок 2, и т.д.
+      final blockNumber = ((widget.level - 1) ~/ 6) + 1;
+      print('🎯 Уровень ${widget.level} относится к блоку $blockNumber');
+
+      // Получаем вопросы только для нужного блока
+      // Для этого нужно знать категорию каждого вопроса
+      // Пока что берем все вопросы и распределяем по порядку
+
+      // Простой подход: берем вопрос по порядку
+      // Если в будущем добавите категории в вопросы, можно будет фильтровать по блоку
       final questionIndex = (widget.level - 1) % questions.length;
       final serverQuestion = questions[questionIndex];
 
+      print('📋 Вопрос из сервера:');
+      print('   ID: ${serverQuestion.id}');
+      print('   Категория: ${serverQuestion.category}');
+      print('   Вопрос: ${serverQuestion.question}');
+
+      // Получаем правильный ответ с сервера
+      final answerResult = await _getCorrectAnswerFromServer(serverQuestion.id);
+      final correctAnswerIndex = answerResult['correctAnswerIndex'];
+      final explanation = answerResult['explanation'];
+
+      // Перемешиваем варианты ответов
+      _shuffleOptions(serverQuestion.options, correctAnswerIndex);
+
+      // Создаем объект вопроса
+      final Map<String, dynamic> newQuestion = {
+        "question": serverQuestion.question,
+        "options": serverQuestion.options, // Оригинальные варианты
+        "answer": correctAnswerIndex, // Оригинальный индекс правильного ответа
+        "id": serverQuestion.id,
+        "subject": serverQuestion.subject,
+        "category": serverQuestion.category,
+        "explanation": explanation,
+      };
+
       setState(() {
-        question = {
-          "question": serverQuestion.question,
-          "options": serverQuestion.options,
-          "answer": 0,
-          "id": serverQuestion.id,
-          "subject": serverQuestion.subject,
-          "category": serverQuestion.category,
-        };
+        question = newQuestion;
         isLoading = false;
       });
     } catch (e) {
@@ -89,7 +156,37 @@ class _QuizScreenState extends State<QuizScreen> {
         error = e.toString();
         isLoading = false;
         question = _getFallbackQuestion();
+        // Перемешиваем и fallback варианты
+        _shuffleOptions(
+          question["options"] as List<String>,
+          question["answer"] as int,
+        );
       });
+    }
+  }
+
+  // Метод для получения правильного ответа с сервера
+  Future<Map<String, dynamic>> _getCorrectAnswerFromServer(
+    int questionId,
+  ) async {
+    try {
+      // Отправляем запрос на проверку с любым ответом, чтобы получить правильный
+      final result = await ApiService.checkAnswer(
+        questionId: questionId,
+        userAnswer: 0,
+      );
+
+      return {
+        'correctAnswerIndex': result.correctAnswer,
+        'explanation': result.explanation,
+      };
+    } catch (e) {
+      print('⚠️ Не удалось получить ответ с сервера: $e');
+      // Fallback
+      return {
+        'correctAnswerIndex': 0,
+        'explanation': 'Проверьте свои знания по этой теме',
+      };
     }
   }
 
@@ -110,35 +207,144 @@ class _QuizScreenState extends State<QuizScreen> {
       listen: false,
     ).currentSubject;
 
-    switch (subject) {
-      case Subject.chemistry:
-        return {
-          "question": "Сколько будет 2+2?",
-          "options": ["3", "4", "5", "6"],
-          "answer": 1,
-          "id": 0,
-          "subject": "Chemistry",
-          "category": "fallback",
-        };
-      case Subject.math:
-        return {
-          "question": "Производная x² равна?",
-          "options": ["2x", "x²", "2x²", "1"],
-          "answer": 0,
-          "id": 0,
-          "subject": "Math",
-          "category": "fallback",
-        };
-      case Subject.history:
-        return {
-          "question": "В каком году началась Вторая мировая война?",
-          "options": ["1937", "1939", "1941", "1945"],
-          "answer": 1,
-          "id": 0,
-          "subject": "History",
-          "category": "fallback",
-        };
+    // Fallback вопросы сгруппированы по блокам
+    final blockNumber = ((widget.level - 1) ~/ 6) + 1;
+
+    final fallbackQuestionsByBlock = {
+      Subject.chemistry: [
+        // Блок 1 (уровни 1-6)
+        [
+          {
+            "question": "Кто открыл периодический закон химических элементов?",
+            "options": ["Менделеев", "Бор", "Резерфорд", "Лавуазье"],
+            "answer": 0,
+            "explanation":
+                "Д.И. Менделеев открыл периодический закон в 1869 году",
+            "id": 1,
+            "subject": "Chemistry",
+            "category": "atomic_structure",
+          },
+          {
+            "question":
+                "Сколько электронов на внешнем уровне у атома натрия (Na)?",
+            "options": ["1", "2", "3", "4"],
+            "answer": 0,
+            "explanation": "Натрий имеет 1 электрон на внешнем уровне",
+            "id": 2,
+            "subject": "Chemistry",
+            "category": "atomic_structure",
+          },
+        ],
+        // Блок 2 (уровни 7-12)
+        [
+          {
+            "question":
+                "Какая связь образуется между атомами водорода в молекуле H₂?",
+            "options": ["Ковалентная", "Ионная", "Металлическая", "Водородная"],
+            "answer": 0,
+            "explanation": "В молекуле H₂ образуется ковалентная связь",
+            "id": 3,
+            "subject": "Chemistry",
+            "category": "chemical_bond",
+          },
+        ],
+      ],
+      Subject.math: [
+        // Блок 1
+        [
+          {
+            "question": "Что такое матрица?",
+            "options": [
+              "Прямоугольная таблица чисел",
+              "Функция двух переменных",
+              "Скалярное произведение",
+              "Дифференциальное уравнение",
+            ],
+            "answer": 0,
+            "explanation":
+                "Матрица — это прямоугольная таблица чисел, символов или выражений",
+            "id": 26,
+            "subject": "Math",
+            "category": "linear_algebra",
+          },
+        ],
+        // Блок 2
+        [
+          {
+            "question": "Что такое предел функции?",
+            "options": [
+              "Значение, к которому стремится функция",
+              "Производная функции",
+              "Интеграл функции",
+              "Область определения",
+            ],
+            "answer": 0,
+            "explanation":
+                "Предел функции — это значение, к которому стремится функция при приближении аргумента к определенной точке",
+            "id": 27,
+            "subject": "Math",
+            "category": "functions_limits",
+          },
+        ],
+      ],
+      Subject.history: [
+        // Блок 1
+        [
+          {
+            "question":
+                "Какой период истории России называют Смутным временем?",
+            "options": ["1605–1613", "1598–1613", "1613–1649", "1584–1598"],
+            "answer": 1,
+            "explanation": "Смутное время — период с 1598 по 1613 год",
+            "id": 51,
+            "subject": "History",
+            "category": "17_century",
+          },
+        ],
+        // Блок 2
+        [
+          {
+            "question": "Кто был первым императором России?",
+            "options": [
+              "Петр I",
+              "Иван Грозный",
+              "Екатерина II",
+              "Александр I",
+            ],
+            "answer": 0,
+            "explanation": "Петр I был провозглашен императором в 1721 году",
+            "id": 52,
+            "subject": "History",
+            "category": "18_century",
+          },
+        ],
+      ],
+    };
+
+    final subjectQuestions = fallbackQuestionsByBlock[subject] ?? [];
+
+    // Берем вопросы из нужного блока
+    final blockIndex = blockNumber - 1;
+    if (blockIndex < subjectQuestions.length) {
+      final blockQuestions = subjectQuestions[blockIndex];
+
+      // Берем конкретный вопрос внутри блока по порядку уровней
+      final levelInBlock = (widget.level - 1) % 6;
+      final questionIndex = levelInBlock % blockQuestions.length;
+
+      return blockQuestions[questionIndex];
     }
+
+    // Fallback если блок не найден
+    return {
+      "question": "Вопрос для уровня ${widget.level}",
+      "options": ["Вариант A", "Вариант B", "Вариант C", "Вариант D"],
+      "answer": 0,
+      "explanation": "Это тестовый вопрос",
+      "id": 0,
+      "subject": subject.toString(),
+      "category": "general",
+    };
   }
 
   @override
@@ -172,7 +378,7 @@ class _QuizScreenState extends State<QuizScreen> {
       selectedIndex = null;
       answered = false;
       _showRetryButton = false;
-      _hintText = ''; // Очищаем подсказку при повторной попытке
+      _hintText = '';
     });
   }
 
@@ -186,54 +392,16 @@ class _QuizScreenState extends State<QuizScreen> {
     });
 
     try {
-      final result = await ApiService.checkAnswer(
-        questionId: question["id"] ?? 0,
-        userAnswer: index,
-      );
+      // Проверяем правильность ответа (с учетом перемешивания)
+      final isCorrect = index == correctAnswerIndex;
+
+      // Получаем объяснение
+      final explanation = question["explanation"] ?? 'Подумайте внимательнее!';
 
       setState(() {
         answered = true;
         isLoading = false;
-        correctAnswerIndex = result.correctAnswer;
-        question["answer"] = result.correctAnswer;
-
-        // Сразу показываем подсказку при неправильном ответе
-        _hintText = result.explanation.isNotEmpty
-            ? result.explanation
-            : 'Подумайте внимательнее!';
-
-        if (result.isCorrect) {
-          _shouldAutoClose = true;
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) {
-              Navigator.pop(context, true);
-            }
-          });
-        } else {
-          _attemptsLeft--;
-          if (_attemptsLeft > 0) {
-            _showRetryButton = true;
-          } else {
-            _showRetryButton = false;
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted && !_shouldAutoClose) {
-                Navigator.pop(context, false);
-              }
-            });
-          }
-        }
-      });
-    } catch (e) {
-      print('❌ Ошибка проверки ответа: $e');
-      // Fallback режим
-      final isCorrect = index == question["answer"];
-      setState(() {
-        answered = true;
-        isLoading = false;
-        correctAnswerIndex = question["answer"];
-
-        // Fallback подсказка
-        _hintText = 'Проверьте свои знания по этой теме';
+        _hintText = explanation;
 
         if (isCorrect) {
           _shouldAutoClose = true;
@@ -256,7 +424,51 @@ class _QuizScreenState extends State<QuizScreen> {
           }
         }
       });
+    } catch (e) {
+      print('❌ Ошибка проверки ответа: $e');
+      setState(() {
+        answered = true;
+        isLoading = false;
+        _hintText =
+            question["explanation"] ?? 'Проверьте свои знания по этой теме';
+
+        if (selectedIndex == correctAnswerIndex) {
+          _shouldAutoClose = true;
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.pop(context, true);
+            }
+          });
+        } else {
+          _attemptsLeft--;
+          if (_attemptsLeft > 0) {
+            _showRetryButton = true;
+          } else {
+            _showRetryButton = false;
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && !_shouldAutoClose) {
+                Navigator.pop(context, false);
+              }
+            });
+          }
+        }
+      });
     }
+  }
+
+  // Метод для отображения перемешанных вариантов
+  String _getOptionText(int index) {
+    if (_shuffledOptions.isNotEmpty && index < _shuffledOptions.length) {
+      return _shuffledOptions[index];
+    }
+
+    // Fallback
+    final options = question["options"] as List? ?? [];
+    if (index < options.length) {
+      return options[index];
+    }
+
+    return 'Вариант ${index + 1}';
   }
 
   @override
@@ -292,7 +504,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Верхняя панель
+                    // Верхняя панель с информацией о блоке
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -307,16 +519,27 @@ class _QuizScreenState extends State<QuizScreen> {
                             color: Colors.white,
                           ),
                         ),
-                        Text(
-                          'Уровень ${widget.level}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            shadows: [
-                              Shadow(color: Colors.black54, blurRadius: 4),
-                            ],
-                          ),
+                        Column(
+                          children: [
+                            Text(
+                              'Уровень ${widget.level}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                shadows: [
+                                  Shadow(color: Colors.black54, blurRadius: 4),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              'Блок ${((widget.level - 1) ~/ 6) + 1}',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                         if (isLoading)
                           SizedBox(
@@ -361,7 +584,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         ),
                       ),
 
-                    // Текстовая подсказка (показывается СРАЗУ при неправильном ответе)
+                    // Подсказка
                     if (_hintText.isNotEmpty && answered)
                       Container(
                         margin: EdgeInsets.only(bottom: 16),
@@ -387,7 +610,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Подсказка:',
+                                    'Объяснение:',
                                     style: TextStyle(
                                       color: Colors.amber,
                                       fontWeight: FontWeight.bold,
@@ -456,13 +679,13 @@ class _QuizScreenState extends State<QuizScreen> {
                       Expanded(
                         child: Column(
                           children: [
-                            // Прогресс
+                            // Прогресс внутри блока
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                               ),
                               child: LinearProgressIndicator(
-                                value: widget.level / 25,
+                                value: (widget.level % 6) / 6,
                                 backgroundColor: Colors.white.withOpacity(0.2),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   Colors.blueAccent,
@@ -471,7 +694,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Вопрос ${widget.level} из 25',
+                              'Вопрос ${(widget.level - 1) % 6 + 1} из 6 в блоке',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,
@@ -480,7 +703,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
                             const SizedBox(height: 20),
 
-                            // Вопрос (без категории)
+                            // Вопрос
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
@@ -514,7 +737,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
                             const SizedBox(height: 30),
 
-                            // Варианты ответов
+                            // Варианты ответов (перемешанные)
                             Expanded(
                               child: GridView.builder(
                                 physics: const NeverScrollableScrollPhysics(),
@@ -528,8 +751,6 @@ class _QuizScreenState extends State<QuizScreen> {
                                       childAspectRatio: 1.2,
                                     ),
                                 itemBuilder: (context, index) {
-                                  final options =
-                                      question["options"] as List? ?? [];
                                   final isSelected = selectedIndex == index;
 
                                   Color borderColor = Colors.white;
@@ -542,7 +763,6 @@ class _QuizScreenState extends State<QuizScreen> {
 
                                   if (answered) {
                                     if (isSelected) {
-                                      // Выбранный вариант (правильный или неправильный)
                                       final isCorrect =
                                           correctAnswerIndex == index;
                                       if (isCorrect) {
@@ -557,7 +777,6 @@ class _QuizScreenState extends State<QuizScreen> {
                                         letterBgColor = Colors.red;
                                       }
                                     } else {
-                                      // Невыбранные варианты
                                       borderColor = Colors.white.withOpacity(
                                         0.3,
                                       );
@@ -570,7 +789,6 @@ class _QuizScreenState extends State<QuizScreen> {
                                       textColor = Colors.white.withOpacity(0.7);
                                     }
                                   } else if (isSelected) {
-                                    // Выбран до ответа
                                     borderColor = Colors.blueAccent;
                                     fillColor = Colors.blue.withOpacity(0.2);
                                     letterBgColor = Colors.blue;
@@ -619,16 +837,14 @@ class _QuizScreenState extends State<QuizScreen> {
                                             ),
                                             SizedBox(height: 12),
 
-                                            // Текст варианта
+                                            // Текст варианта (перемешанный)
                                             Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 8,
                                                   ),
                                               child: Text(
-                                                index < options.length
-                                                    ? options[index]
-                                                    : 'Вариант ${index + 1}',
+                                                _getOptionText(index),
                                                 style: TextStyle(
                                                   color: textColor,
                                                   fontWeight: FontWeight.w600,
@@ -650,7 +866,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                               ),
                                             ),
 
-                                            // Иконка статуса только для выбранного варианта
+                                            // Иконка статуса
                                             if (answered && isSelected)
                                               Container(
                                                 margin: EdgeInsets.only(top: 8),

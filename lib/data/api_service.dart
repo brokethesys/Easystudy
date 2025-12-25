@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // Важно: для Android эмулятора используйте 10.0.2.2
   // Для iOS симулятора или реального устройства используйте IP вашего компьютера
-   static const String baseUrl = 'http://10.0.2.2:8080';
-   //static const String baseUrl = 'http://localhost:8080';
+  //static const String baseUrl = 'http://10.0.2.2:8080';
+  static const String baseUrl = 'http://localhost:8080';
   // Для тестирования на физическом устройстве:
   // static const String baseUrl = 'http://192.168.1.XXX:8080'; // замените на ваш IP
 
@@ -431,12 +431,14 @@ class TheoryBlock {
   final String subject;
   final String title;
   final String content;
+  final String? image; // Новое поле для изображения
 
   TheoryBlock({
     required this.blockNumber,
     required this.subject,
     required this.title,
     required this.content,
+    this.image,
   });
 
   factory TheoryBlock.fromJson(Map<String, dynamic> json) {
@@ -445,6 +447,7 @@ class TheoryBlock {
       subject: json['subject'] ?? '',
       title: json['title'] ?? '',
       content: json['content'] ?? '',
+      image: json['image'], // Может быть null
     );
   }
 
@@ -454,8 +457,12 @@ class TheoryBlock {
       'subject': subject,
       'title': title,
       'content': content,
+      'image': image,
     };
   }
+
+  // Проверка, есть ли изображение
+  bool get hasImage => image != null && image!.isNotEmpty;
 }
 
 // Модель полного набора данных по предмету (теория + вопросы)

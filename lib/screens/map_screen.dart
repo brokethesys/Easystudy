@@ -1082,19 +1082,21 @@ class __TheorySheetState extends State<_TheorySheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ИЗМЕНЕНО: показываем название блока здесь, а не в заголовке
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              widget.blockTitle, // Название блока показываем в контенте
-              style: const TextStyle(
-                fontFamily: "ClashRoyale",
-                fontSize: 20,
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+          if (theoryBlock.title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                theoryBlock.title,
+                style: const TextStyle(
+                  fontFamily: "ClashRoyale",
+                  fontSize: 20,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
+
+          // Текст теории
           Text(
             theoryBlock.content,
             style: const TextStyle(
@@ -1104,6 +1106,44 @@ class __TheorySheetState extends State<_TheorySheet> {
               height: 1.35,
             ),
           ),
+
+          const SizedBox(height: 20),
+
+          // Изображение, если есть (только для первых двух блоков)
+          if (theoryBlock.hasImage && theoryBlock.blockNumber <= 2)
+            Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF37464F),
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      'assets/images/theory/${theoryBlock.image!}',
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Иллюстрация к теме',
+                  style: TextStyle(
+                    fontFamily: "ClashRoyale",
+                    fontSize: 14,
+                    color: Colors.white60,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
         ],
       ),
     );
