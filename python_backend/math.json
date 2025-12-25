@@ -1,0 +1,377 @@
+[
+    {
+        "id": 26,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Что такое матрица?",
+        "options": [
+            "Прямоугольная таблица чисел",
+            "Функция двух переменных",
+            "Скалярное произведение",
+            "Дифференциальное уравнение"
+        ],
+        "correct": 0,
+        "difficulty": 1,
+        "explanation": "Матрица — это прямоугольная таблица чисел, символов или выражений"
+    },
+    {
+        "id": 27,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Когда вектор называется линейно независимым?",
+        "options": [
+            "Если ни один вектор нельзя представить как комбинацию остальных",
+            "Если все компоненты вектора равны нулю",
+            "Если длина вектора равна 1",
+            "Если он направлен вдоль оси x"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Векторы линейно независимы, если ни один из них нельзя представить как линейную комбинацию остальных"
+    },
+    {
+        "id": 28,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Какое условие для обратимой квадратной матрицы?",
+        "options": [
+            "Детерминант ≠ 0",
+            "Детерминант = 0",
+            "Матрица симметричная",
+            "Все элементы положительные"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Квадратная матрица обратима тогда и только тогда, когда её определитель не равен нулю"
+    },
+    {
+        "id": 29,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Как называется сумма диагональных элементов матрицы?",
+        "options": [
+            "Трасса",
+            "Детерминант",
+            "След",
+            "Норма"
+        ],
+        "correct": 2,
+        "difficulty": 2,
+        "explanation": "След матрицы — сумма элементов её главной диагонали"
+    },
+    {
+        "id": 30,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Что такое транспонированная матрица?",
+        "options": [
+            "Матрица, полученная сменой строк и столбцов",
+            "Матрица с обратными элементами",
+            "Матрица, умноженная на число",
+            "Матрица с нулями на диагонали"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Транспонированная матрица получается заменой строк на столбцы"
+    },
+    {
+        "id": 31,
+        "subject": "Math",
+        "category": "linear_algebra",
+        "question": "Когда система линейных уравнений называется совместной?",
+        "options": [
+            "Если существует хотя бы одно решение",
+            "Если решений нет",
+            "Если решений бесконечно много",
+            "Если система однородная"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Система совместна, если она имеет хотя бы одно решение"
+    },
+    {
+        "id": 32,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "Что такое предел функции f(x) при x → a?",
+        "options": [
+            "Значение, к которому f(x) стремится при x → a",
+            "Значение f(a)",
+            "Максимальное значение функции",
+            "Производная функции"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Предел функции — это значение, к которому приближается функция при приближении аргумента к заданной точке"
+    },
+    {
+        "id": 33,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "Предел последовательности {a_n} существует, если она:",
+        "options": [
+            "Сходится",
+            "Расходится",
+            "Периодическая",
+            "Линейная"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Последовательность имеет предел, если она сходится к некоторому числу"
+    },
+    {
+        "id": 34,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "Если lim(x→0) (sin x)/x = ?",
+        "options": [
+            "1",
+            "0",
+            "sin 0",
+            "∞"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Первый замечательный предел: lim(x→0) sin(x)/x = 1"
+    },
+    {
+        "id": 35,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "Предел функции при x → ∞ обозначает:",
+        "options": [
+            "Поведение функции при больших x",
+            "Значение функции в нуле",
+            "Максимум функции",
+            "Производную функции"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Предел при x → ∞ показывает поведение функции на бесконечности"
+    },
+    {
+        "id": 36,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "Функция называется непрерывной в точке, если:",
+        "options": [
+            "Предел функции в точке равен значению функции",
+            "Производная существует",
+            "Значение функции > 0",
+            "Функция периодическая"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Функция непрерывна в точке, если предел в этой точке равен значению функции"
+    },
+    {
+        "id": 37,
+        "subject": "Math",
+        "category": "functions_limits",
+        "question": "lim(x→∞) (1 + 1/x)^x равно:",
+        "options": [
+            "e",
+            "1",
+            "0",
+            "∞"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Второй замечательный предел: lim(x→∞) (1 + 1/x)^x = e"
+    },
+    {
+        "id": 38,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Производная функции y = x³ равна:",
+        "options": [
+            "3x²",
+            "x³",
+            "x²",
+            "3x"
+        ],
+        "correct": 0,
+        "difficulty": 1,
+        "explanation": "Производная степенной функции: (x^n)' = n*x^(n-1)"
+    },
+    {
+        "id": 39,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Для функции y = e^x производная равна:",
+        "options": [
+            "e^x",
+            "x e^x",
+            "1",
+            "0"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Производная экспоненты: (e^x)' = e^x"
+    },
+    {
+        "id": 40,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Критическая точка функции f(x) — это точка, где:",
+        "options": [
+            "f'(x) = 0 или не существует",
+            "f(x) = 0",
+            "f''(x) > 0",
+            "x = 0"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Критическая точка — где производная равна нулю или не существует"
+    },
+    {
+        "id": 41,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Производная функции sin(x) равна:",
+        "options": [
+            "cos(x)",
+            "-sin(x)",
+            "-cos(x)",
+            "sin(x)"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Производная синуса: (sin x)' = cos x"
+    },
+    {
+        "id": 42,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Производная произведения функций f(x)g(x) по правилу Лейбница:",
+        "options": [
+            "f'g + fg'",
+            "f'g'",
+            "fg",
+            "f'g' - fg"
+        ],
+        "correct": 0,
+        "difficulty": 3,
+        "explanation": "Правило дифференцирования произведения: (fg)' = f'g + fg'"
+    },
+    {
+        "id": 43,
+        "subject": "Math",
+        "category": "derivatives",
+        "question": "Если f'(x) > 0 на интервале, функция f(x):",
+        "options": [
+            "Возрастает",
+            "Убывает",
+            "Постоянна",
+            "Не определена"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Если производная положительна, функция возрастает"
+    },
+    {
+        "id": 44,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Неопределённый интеграл ∫x² dx равен:",
+        "options": [
+            "x³/3 + C",
+            "x² + C",
+            "2x + C",
+            "x³/2 + C"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "∫x^n dx = x^(n+1)/(n+1) + C"
+    },
+    {
+        "id": 45,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Что показывает определённый интеграл от функции f(x) на [a, b]?",
+        "options": [
+            "Площадь под графиком функции",
+            "Производную функции",
+            "Произвольную константу",
+            "Значение функции в точке a"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "Определённый интеграл вычисляет площадь под кривой"
+    },
+    {
+        "id": 46,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Интеграл ∫ e^x dx равен:",
+        "options": [
+            "e^x + C",
+            "x e^x + C",
+            "ln x + C",
+            "1/x + C"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "∫e^x dx = e^x + C"
+    },
+    {
+        "id": 47,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Неопределённый интеграл ∫cos(x) dx равен:",
+        "options": [
+            "sin(x) + C",
+            "-sin(x) + C",
+            "cos(x) + C",
+            "-cos(x) + C"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "∫cos x dx = sin x + C"
+    },
+    {
+        "id": 48,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Определённый интеграл ∫₀¹ x dx равен:",
+        "options": [
+            "1/2",
+            "1",
+            "0",
+            "2"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "∫₀¹ x dx = x²/2|₀¹ = 1/2 - 0 = 1/2"
+    },
+    {
+        "id": 49,
+        "subject": "Math",
+        "category": "integrals",
+        "question": "Неопределённый интеграл ∫1/x dx равен:",
+        "options": [
+            "ln|x| + C",
+            "1/x + C",
+            "x + C",
+            "e^x + C"
+        ],
+        "correct": 0,
+        "difficulty": 2,
+        "explanation": "∫1/x dx = ln|x| + C"
+    },
+    {
+        "id": 50,
+        "subject": "Math",
+        "category": "sequences_series",
+        "question": "Арифметическая прогрессия — это последовательность, в которой:",
+        "options": [
+            "Разность соседних членов постоянна",
+            "Члены последовательности равны",
+            "Произведение соседних членов постоянно",
+            "Сумма членов равна n"
+        ],
+        "correct": 0,
+        "difficulty": 1,
+        "explanation": "В арифметической прогрессии разность между соседними членами постоянна"
+    }
+]

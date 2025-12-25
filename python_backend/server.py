@@ -9,7 +9,7 @@ import json
 import os
 import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from datetime import datetime
 import socket
 
@@ -41,21 +41,37 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
         print(f"[{timestamp}] {self.address_string()} - {format % args}")
     
     def _load_questions(self):
-        """Загружает вопросы из JSON файла"""
-        try:
-            with open('questions.json', 'r', encoding='utf-8') as f:
-                questions = json.load(f)
-            print(f"✅ Загружено {len(questions)} вопросов из questions.json")
-            return questions
-        except FileNotFoundError:
-            print("❌ Файл questions.json не найден!")
-            return []
-        except json.JSONDecodeError as e:
-            print(f"❌ Ошибка чтения JSON: {e}")
-            return []
-        except Exception as e:
-            print(f"❌ Неожиданная ошибка: {e}")
-            return []
+        """Загружает вопросы из нескольких JSON файлов"""
+        question_files = [
+            'chemistry.json',  # Химия -> Chemistry
+            'math.json',       # Математика -> Math
+            'history.json'     # История -> History
+        ]
+        
+        all_questions = []
+        
+        for filename in question_files:
+            try:
+                if os.path.exists(filename):
+                    with open(filename, 'r', encoding='utf-8') as f:
+                        questions = json.load(f)
+                        all_questions.extend(questions)
+                        print(f"✅ Загружено {len(questions)} вопросов из {filename}")
+                else:
+                    print(f"⚠️  Файл {filename} не найден")
+                    
+            except json.JSONDecodeError as e:
+                print(f"❌ Ошибка чтения {filename}: {e}")
+            except Exception as e:
+                print(f"❌ Неожиданная ошибка при загрузке {filename}: {e}")
+        
+        print(f"📊 Всего загружено {len(all_questions)} вопросов")
+        
+        # Проверяем предметы
+        subjects = list(set([q.get('subject', 'Unknown') for q in all_questions]))
+        print(f"📚 Предметы в базе: {subjects}")
+        
+        return all_questions
     
     def _get_subjects(self):
         """Возвращает список уникальных предметов"""
@@ -150,7 +166,7 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
         if not self.questions:
             response = {
                 "status": "error",
-                "message": "Вопросы не загружены. Проверьте файл questions.json"
+                "message": "Вопросы не загружены. Проверьте файлы chemistry.json, math.json, history.json"
             }
             self._set_headers(500)
             self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
@@ -165,6 +181,8 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                     "message": "EasyStudy Quiz API работает",
                     "timestamp": datetime.now().isoformat(),
                     "server_ip": self._get_server_ip(),
+                    "total_questions": len(self.questions),
+                    "subjects": self._get_subjects(),
                     "endpoints": {
                         "/subjects": "Список всех предметов",
                         "/categories": "Все категории",
@@ -248,13 +266,20 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                 # Вопросы по предмету
                 parts = path.split('/')
                 if len(parts) >= 4:
-                    subject = parts[3]
+                    # Декодируем название предмета из URL
+                    encoded_subject = parts[3]
+                    subject = unquote(encoded_subject)
+                    
+                    print(f"🔍 Запрос вопросов по предмету: '{subject}' (декодировано из '{encoded_subject}')")
                     
                     # Проверяем, есть ли категория
                     if len(parts) >= 6 and parts[4] == 'category':
-                        category = parts[5]
+                        encoded_category = parts[5]
+                        category = unquote(encoded_category)
                         limit = query_params.get('limit', [None])[0]
                         shuffle = query_params.get('shuffle', ['false'])[0].lower() == 'true'
+                        
+                        print(f"  Категория: '{category}'")
                         
                         category_questions = self._get_questions_by_category(
                             subject, category, 
@@ -288,6 +313,8 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
                             limit=int(limit) if limit and limit.isdigit() else None,
                             shuffle=shuffle
                         )
+                        
+                        print(f"  Найдено вопросов: {len(subject_questions)}")
                         
                         # Убираем правильный ответ для клиента
                         questions_for_client = []
@@ -493,9 +520,9 @@ class QuizRequestHandler(BaseHTTPRequestHandler):
         except:
             return "localhost"
 
-def run_server(port=8080):
+def run_server(host='0.0.0.0', port=8080):
     """Запускает сервер"""
-    server_address = ('', port)
+    server_address = (host, port)
     httpd = HTTPServer(server_address, QuizRequestHandler)
     
     print("=" * 60)
@@ -503,6 +530,7 @@ def run_server(port=8080):
     print("=" * 60)
     print(f"📡 Сервер запущен на:")
     print(f"   Локально: http://localhost:{port}")
+    print(f"   Для Android эмулятора: http://10.0.2.2:{port}")
     
     try:
         ip = socket.gethostbyname(socket.gethostname())
@@ -521,12 +549,12 @@ def run_server(port=8080):
     print("\n⚙️  Параметры запросов:")
     print("   ?limit=10        - ограничить количество")
     print("   ?shuffle=true    - перемешать вопросы")
-    print("   ?subject=Математика - фильтр по предмету")
+    print("   ?subject=Math    - фильтр по предмету")
     
-    # В функции run_server изменим примеры:
     print("\n📊 Для тестирования в браузере:")
     print(f"   http://localhost:{port}/questions/subject/Chemistry")
-    print(f"   http://localhost:{port}/quiz/Math/5")    
+    print(f"   http://localhost:{port}/quiz/Math/5")
+    print(f"   http://localhost:{port}/subjects")
     
     print("\n🛑 Для остановки сервера нажмите Ctrl+C")
     print("=" * 60)
@@ -539,31 +567,65 @@ def run_server(port=8080):
         print(f"\n\n❌ Ошибка сервера: {e}")
 
 if __name__ == '__main__':
-    # Проверяем наличие файла с вопросами
-    if not os.path.exists('questions.json'):
-        print("⚠️  Внимание: файл questions.json не найден!")
-        print("   Создайте его или убедитесь, что находитесь в правильной папке.")
-        print("   Текущая папка:", os.getcwd())
+    # Проверяем наличие файлов с вопросами
+    required_files = ['chemistry.json', 'math.json', 'history.json']
+    missing_files = []
+    
+    for filename in required_files:
+        if not os.path.exists(filename):
+            missing_files.append(filename)
+    
+    if missing_files:
+        print("⚠️  Внимание: не найдены следующие файлы:")
+        for filename in missing_files:
+            print(f"   - {filename}")
+        print("Убедитесь, что находитесь в правильной папке.")
+        print(f"Текущая папка: {os.getcwd()}")
         
-        # Создаем пример файла
-        sample_data = [
-            {
-                "id": 1,
-                "subject": "Math",
-                "category": "пример",
-                "question": "Пример вопроса?",
-                "options": ["Вариант A", "Вариант B", "Вариант C", "Вариант D"],
-                "correct": 0,
-                "difficulty": 1,
-                "explanation": "Пример объяснения"
-            }
-        ]
-        
-        create_sample = input("Создать пример questions.json? (y/n): ")
+        create_sample = input("\nСоздать пример файлов? (y/n): ")
         if create_sample.lower() == 'y':
-            with open('questions.json', 'w', encoding='utf-8') as f:
-                json.dump(sample_data, f, ensure_ascii=False, indent=2)
-            print("✅ Создан пример questions.json")
+            # Создаем пример файлов
+            for filename in missing_files:
+                sample_data = []
+                if filename == 'chemistry.json':
+                    sample_data = [{
+                        "id": 1,
+                        "subject": "Chemistry",
+                        "category": "atomic_structure",
+                        "question": "Кто открыл периодический закон химических элементов?",
+                        "options": ["Менделеев", "Бор", "Резерфорд", "Лавуазье"],
+                        "correct": 0,
+                        "difficulty": 1,
+                        "explanation": "Д.И. Менделеев открыл периодический закон в 1869 году"
+                    }]
+                elif filename == 'math.json':
+                    sample_data = [{
+                        "id": 26,
+                        "subject": "Math",
+                        "category": "linear_algebra",
+                        "question": "Что такое матрица?",
+                        "options": ["Прямоугольная таблица чисел", "Функция двух переменных", "Скалярное произведение", "Дифференциальное уравнение"],
+                        "correct": 0,
+                        "difficulty": 1,
+                        "explanation": "Матрица — это прямоугольная таблица чисел, символов или выражений"
+                    }]
+                elif filename == 'history.json':
+                    sample_data = [{
+                        "id": 51,
+                        "subject": "History",
+                        "category": "17_century",
+                        "question": "Какой период истории России называют Смутным временем?",
+                        "options": ["1605–1613", "1598–1613", "1613–1649", "1584–1598"],
+                        "correct": 1,
+                        "difficulty": 2,
+                        "explanation": "Смутное время — период с 1598 по 1613 год"
+                    }]
+                
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(sample_data, f, ensure_ascii=False, indent=2)
+                print(f"✅ Создан пример {filename}")
+    else:
+        print("✅ Все файлы с вопросами найдены")
     
     # Запускаем сервер
-    run_server(port=8080)
+    run_server(host='0.0.0.0', port=8080)

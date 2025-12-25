@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart'; // для currentBackground
 import '../data/game_state.dart';
-import '../data/api_service.dart'; // Подключаем наш новый ApiService
+import '../data/api_service.dart';
 
 class QuizScreen extends StatefulWidget {
   final int level;
@@ -15,10 +15,15 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   late Map<String, dynamic> question;
   int? selectedIndex;
+  int? correctAnswerIndex;
   bool answered = false;
   Color backgroundColor = Colors.blue;
   bool isLoading = false;
   String error = '';
+  bool _shouldAutoClose = false;
+  int _attemptsLeft = 2; // 2 попытки (первая + 1 повторная)
+  bool _showRetryButton = false;
+  String _hintText = ''; // Текстовая подсказка
 
   @override
   void initState() {
@@ -27,7 +32,6 @@ class _QuizScreenState extends State<QuizScreen> {
     backgroundColor = _colorForId(currentBackground.value);
     currentBackground.addListener(_backgroundListener);
 
-    // Загружаем вопрос из сервера
     _loadQuestionFromServer();
   }
 
@@ -35,6 +39,12 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       isLoading = true;
       error = '';
+      selectedIndex = null;
+      answered = false;
+      correctAnswerIndex = null;
+      _attemptsLeft = 2;
+      _showRetryButton = false;
+      _hintText = '';
     });
 
     try {
@@ -44,7 +54,6 @@ class _QuizScreenState extends State<QuizScreen> {
       ).currentSubject;
       final subjectString = _subjectToString(subject);
 
-      // Проверяем соединение с сервером
       final isConnected = await ApiService.checkConnection();
       if (!isConnected) {
         throw Exception('Нет подключения к серверу. Запустите Python сервер.');
@@ -53,7 +62,7 @@ class _QuizScreenState extends State<QuizScreen> {
       final questions = await ApiService.getQuestionsBySubject(
         subjectString,
         limit: 50,
-        shuffle: true,
+        shuffle: false,
       );
 
       if (questions.isEmpty) {
@@ -92,17 +101,6 @@ class _QuizScreenState extends State<QuizScreen> {
         return 'Math';
       case Subject.english:
         return 'History';
-    }
-  }
-
-  List<String> _getAlternativeSubjectNames(Subject subject) {
-    switch (subject) {
-      case Subject.chemistry:
-        return ['Chemistry', 'chemistry'];
-      case Subject.math:
-        return ['Math', 'math', 'Mathematics'];
-      case Subject.english:
-        return ['History', 'history'];
     }
   }
 
@@ -169,8 +167,18 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
+  void _resetSelection() {
+    setState(() {
+      selectedIndex = null;
+      answered = false;
+      _showRetryButton = false;
+      _hintText = ''; // Очищаем подсказку при повторной попытке
+    });
+  }
+
   Future<void> _handleAnswerTap(int index) async {
-    if (answered || isLoading) return;
+    if (answered && !_showRetryButton) return;
+    if (isLoading) return;
 
     setState(() {
       selectedIndex = index;
@@ -178,7 +186,6 @@ class _QuizScreenState extends State<QuizScreen> {
     });
 
     try {
-      // Проверяем ответ через сервер
       final result = await ApiService.checkAnswer(
         questionId: question["id"] ?? 0,
         userAnswer: index,
@@ -187,250 +194,311 @@ class _QuizScreenState extends State<QuizScreen> {
       setState(() {
         answered = true;
         isLoading = false;
-        // Обновляем правильный ответ из результата
+        correctAnswerIndex = result.correctAnswer;
         question["answer"] = result.correctAnswer;
-      });
 
-      // Показываем объяснение
-      if (result.explanation.isNotEmpty) {
-        _showExplanationDialog(result);
-      } else {
-        // Если нет объяснения, просто ждем и закрываем
-        Future.delayed(const Duration(seconds: 1), () {
-          Navigator.pop(context, result.isCorrect);
-        });
-      }
+        // Сразу показываем подсказку при неправильном ответе
+        _hintText = result.explanation.isNotEmpty
+            ? result.explanation
+            : 'Подумайте внимательнее!';
+
+        if (result.isCorrect) {
+          _shouldAutoClose = true;
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.pop(context, true);
+            }
+          });
+        } else {
+          _attemptsLeft--;
+          if (_attemptsLeft > 0) {
+            _showRetryButton = true;
+          } else {
+            _showRetryButton = false;
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && !_shouldAutoClose) {
+                Navigator.pop(context, false);
+              }
+            });
+          }
+        }
+      });
     } catch (e) {
       print('❌ Ошибка проверки ответа: $e');
-      // Fallback: проверяем локально
+      // Fallback режим
       final isCorrect = index == question["answer"];
       setState(() {
         answered = true;
         isLoading = false;
-      });
+        correctAnswerIndex = question["answer"];
 
-      Future.delayed(const Duration(seconds: 1), () {
-        Navigator.pop(context, isCorrect);
+        // Fallback подсказка
+        _hintText = 'Проверьте свои знания по этой теме';
+
+        if (isCorrect) {
+          _shouldAutoClose = true;
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.pop(context, true);
+            }
+          });
+        } else {
+          _attemptsLeft--;
+          if (_attemptsLeft > 0) {
+            _showRetryButton = true;
+          } else {
+            _showRetryButton = false;
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && !_shouldAutoClose) {
+                Navigator.pop(context, false);
+              }
+            });
+          }
+        }
       });
     }
   }
 
-  void _showExplanationDialog(AnswerResult result) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              result.isCorrect ? Icons.check_circle : Icons.cancel,
-              color: result.isCorrect ? Colors.green : Colors.red,
-              size: 30,
-            ),
-            SizedBox(width: 10),
-            Text(
-              result.isCorrect ? 'Правильно!' : 'Неправильно',
-              style: TextStyle(
-                color: result.isCorrect ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (result.explanation.isNotEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Объяснение:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 5),
-                    Text(result.explanation),
-                    SizedBox(height: 10),
-                  ],
-                ),
-
-              if (!result.isCorrect)
-                Text(
-                  'Правильный ответ: ${String.fromCharCode(65 + result.correctAnswer)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Future.delayed(const Duration(milliseconds: 300), () {
-                Navigator.pop(context, result.isCorrect);
-              });
-            },
-            child: Text(
-              'Продолжить',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(child: Container(color: backgroundColor)),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withOpacity(0.5),
-                    Colors.black.withOpacity(0.2),
-                  ],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
+    return WillPopScope(
+      onWillPop: () async {
+        if (answered && !_showRetryButton) {
+          Navigator.pop(context, false);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(child: Container(color: backgroundColor)),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withOpacity(0.5),
+                      Colors.black.withOpacity(0.2),
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
                 ),
               ),
             ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Colors.white,
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Верхняя панель
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            if (!isLoading) {
+                              Navigator.pop(context, false);
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Уровень ${widget.level}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          shadows: [
-                            Shadow(color: Colors.black54, blurRadius: 4),
+                        Text(
+                          'Уровень ${widget.level}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            shadows: [
+                              Shadow(color: Colors.black54, blurRadius: 4),
+                            ],
+                          ),
+                        ),
+                        if (isLoading)
+                          SizedBox(
+                            width: 48,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 48),
+                      ],
+                    ),
+
+                    // Ошибка
+                    if (error.isNotEmpty)
+                      Container(
+                        margin: EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error, color: Colors.red),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                error,
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.refresh, color: Colors.white),
+                              onPressed: _loadQuestionFromServer,
+                            ),
                           ],
                         ),
                       ),
-                      if (isLoading)
-                        SizedBox(
-                          width: 48,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 48),
-                    ],
-                  ),
 
-                  if (error.isNotEmpty)
-                    Container(
-                      margin: EdgeInsets.symmetric(vertical: 16),
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error, color: Colors.red),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              error,
-                              style: TextStyle(color: Colors.white),
-                            ),
+                    // Текстовая подсказка (показывается СРАЗУ при неправильном ответе)
+                    if (_hintText.isNotEmpty && answered)
+                      Container(
+                        margin: EdgeInsets.only(bottom: 16),
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.amber.withOpacity(0.5),
                           ),
-                          IconButton(
-                            icon: Icon(Icons.refresh, color: Colors.white),
-                            onPressed: _loadQuestionFromServer,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  const SizedBox(height: 20),
-
-                  if (isLoading && question.isEmpty)
-                    Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: Column(
-                        children: [
-                          // Вопрос
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 20,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              color: Colors.amber,
+                              size: 24,
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Категория
-                                if (question["category"] != null &&
-                                    question["category"] != "fallback")
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      question["category"].toString(),
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 12,
-                                      ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Подсказка:',
+                                    style: TextStyle(
+                                      color: Colors.amber,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
                                   ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    _hintText,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
-                                SizedBox(height: 8),
+                    // Кнопка повторной попытки
+                    if (_showRetryButton)
+                      Container(
+                        margin: EdgeInsets.only(bottom: 16),
+                        child: ElevatedButton(
+                          onPressed: _resetSelection,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.refresh),
+                              SizedBox(width: 8),
+                              Text(
+                                'Попробовать ещё раз',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
 
-                                // Текст вопроса
-                                Text(
+                    const SizedBox(height: 10),
+
+                    if (isLoading && question.isEmpty)
+                      Expanded(
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: Column(
+                          children: [
+                            // Прогресс
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: LinearProgressIndicator(
+                                value: widget.level / 25,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.blueAccent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Вопрос ${widget.level} из 25',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // Вопрос (без категории)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 20,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
                                   question["question"] ?? 'Вопрос не загружен',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -440,97 +508,180 @@ class _QuizScreenState extends State<QuizScreen> {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(height: 40),
+                            const SizedBox(height: 30),
 
-                          // Варианты ответов
-                          Expanded(
-                            child: GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount:
-                                  (question["options"] as List?)?.length ?? 4,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    mainAxisSpacing: 16,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: 1,
-                                  ),
-                              itemBuilder: (context, index) {
-                                final options =
-                                    question["options"] as List? ?? [];
-                                final isCorrect = index == question["answer"];
-                                final isSelected = selectedIndex == index;
-                                Color borderColor = Colors.white;
-                                Color fillColor = Colors.white.withOpacity(0.1);
-
-                                if (answered && isSelected) {
-                                  borderColor = isCorrect
-                                      ? Colors.greenAccent
-                                      : Colors.redAccent;
-                                  fillColor = borderColor.withOpacity(0.3);
-                                } else if (answered && isCorrect) {
-                                  borderColor = Colors.greenAccent;
-                                }
-
-                                return GestureDetector(
-                                  onTap: () => _handleAnswerTap(index),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    decoration: BoxDecoration(
-                                      color: fillColor,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: borderColor,
-                                        width: 3,
-                                      ),
+                            // Варианты ответов
+                            Expanded(
+                              child: GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount:
+                                    (question["options"] as List?)?.length ?? 4,
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 16,
+                                      crossAxisSpacing: 16,
+                                      childAspectRatio: 1.2,
                                     ),
-                                    child: Center(
-                                      child: AnimatedScale(
-                                        scale: isSelected ? 1.05 : 1.0,
-                                        duration: const Duration(
-                                          milliseconds: 200,
+                                itemBuilder: (context, index) {
+                                  final options =
+                                      question["options"] as List? ?? [];
+                                  final isSelected = selectedIndex == index;
+
+                                  Color borderColor = Colors.white;
+                                  Color fillColor = Colors.white.withOpacity(
+                                    0.1,
+                                  );
+                                  Color textColor = Colors.white;
+                                  Color letterBgColor = Colors.white
+                                      .withOpacity(0.2);
+
+                                  if (answered) {
+                                    if (isSelected) {
+                                      // Выбранный вариант (правильный или неправильный)
+                                      final isCorrect =
+                                          correctAnswerIndex == index;
+                                      if (isCorrect) {
+                                        borderColor = Colors.greenAccent;
+                                        fillColor = Colors.green.withOpacity(
+                                          0.2,
+                                        );
+                                        letterBgColor = Colors.green;
+                                      } else {
+                                        borderColor = Colors.redAccent;
+                                        fillColor = Colors.red.withOpacity(0.2);
+                                        letterBgColor = Colors.red;
+                                      }
+                                    } else {
+                                      // Невыбранные варианты
+                                      borderColor = Colors.white.withOpacity(
+                                        0.3,
+                                      );
+                                      fillColor = Colors.white.withOpacity(
+                                        0.05,
+                                      );
+                                      letterBgColor = Colors.white.withOpacity(
+                                        0.1,
+                                      );
+                                      textColor = Colors.white.withOpacity(0.7);
+                                    }
+                                  } else if (isSelected) {
+                                    // Выбран до ответа
+                                    borderColor = Colors.blueAccent;
+                                    fillColor = Colors.blue.withOpacity(0.2);
+                                    letterBgColor = Colors.blue;
+                                  }
+
+                                  return GestureDetector(
+                                    onTap: () => _handleAnswerTap(index),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: fillColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: borderColor,
+                                          width: 3,
                                         ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: Text(
-                                            index < options.length
-                                                ? options[index]
-                                                : 'Вариант ${index + 1}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 18,
-                                              shadows: [
-                                                Shadow(
-                                                  color: Colors.black45,
-                                                  blurRadius: 4,
+                                      ),
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            // Буква варианта
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: letterBgColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  String.fromCharCode(
+                                                    65 + index,
+                                                  ),
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                  ),
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                            textAlign: TextAlign.center,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                            SizedBox(height: 12),
+
+                                            // Текст варианта
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                              child: Text(
+                                                index < options.length
+                                                    ? options[index]
+                                                    : 'Вариант ${index + 1}',
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 16,
+                                                  shadows:
+                                                      textColor == Colors.white
+                                                      ? [
+                                                          Shadow(
+                                                            color:
+                                                                Colors.black45,
+                                                            blurRadius: 4,
+                                                          ),
+                                                        ]
+                                                      : null,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+
+                                            // Иконка статуса только для выбранного варианта
+                                            if (answered && isSelected)
+                                              Container(
+                                                margin: EdgeInsets.only(top: 8),
+                                                child: Icon(
+                                                  correctAnswerIndex == index
+                                                      ? Icons.check_circle
+                                                      : Icons.cancel,
+                                                  color:
+                                                      correctAnswerIndex ==
+                                                          index
+                                                      ? Colors.green
+                                                      : Colors.red,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
