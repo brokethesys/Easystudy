@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../audio/audio_manager.dart'; // Добавьте этот импорт
 
-enum Subject { chemistry, math, history}
+enum Subject { chemistry, math, history }
 
 class GameState extends ChangeNotifier {
   // === Общие настройки ===
@@ -55,23 +55,17 @@ class GameState extends ChangeNotifier {
     this.selectedAvatar = 'default',
     Set<int>? collectedAchievements,
     this.nickname = 'Player',
-  })  : currentLevels = currentLevels ??
-            {
-              Subject.chemistry: 1,
-              Subject.math: 1,
-              Subject.history: 1,
-            },
-        completedLevels = completedLevels ??
-            {
-              Subject.chemistry: {},
-              Subject.math: {},
-              Subject.history: {},
-            },
-        ownedBackgrounds = ownedBackgrounds ??
-            ['blue', 'green', 'purple', 'orange'],
-        ownedFrames = ownedFrames ?? ['default'],
-        ownedAvatars = ownedAvatars ?? ['default'],
-        collectedAchievements = collectedAchievements ?? {} {
+  }) : currentLevels =
+           currentLevels ??
+           {Subject.chemistry: 1, Subject.math: 1, Subject.history: 1},
+       completedLevels =
+           completedLevels ??
+           {Subject.chemistry: {}, Subject.math: {}, Subject.history: {}},
+       ownedBackgrounds =
+           ownedBackgrounds ?? ['blue', 'green', 'purple', 'orange'],
+       ownedFrames = ownedFrames ?? ['default'],
+       ownedAvatars = ownedAvatars ?? ['default'],
+       collectedAchievements = collectedAchievements ?? {} {
     // Инициализируем AudioManager с текущими настройками
     _initializeAudio();
   }
@@ -88,9 +82,13 @@ class GameState extends ChangeNotifier {
   // === Константы ===
   int get xpForNextLevel => 150;
 
+  // Для TopHUD: прогресс опыта от 0.0 до 1.0
+  double get xpRatio {
+    return (currentXP / xpForNextLevel).clamp(0.0, 1.0);
+  }
+
   int get currentLevel => currentLevels[currentSubject] ?? 1;
-  Set<int> get subjectCompletedLevels =>
-      completedLevels[currentSubject] ?? {};
+  Set<int> get subjectCompletedLevels => completedLevels[currentSubject] ?? {};
 
   int getCoinsRewardForLevel(int level) {
     int rewardStage = ((level - 1) ~/ 5) + 1;
@@ -98,12 +96,12 @@ class GameState extends ChangeNotifier {
   }
 
   // === Вспомогательные методы для достижений ===
-  
+
   int getCompletedLevelsCountWithoutFirst(Subject subject) {
     final completed = completedLevels[subject] ?? {};
     return completed.where((level) => level > 0).length;
   }
-  
+
   int get totalCompletedLevels {
     int total = 0;
     for (var subject in Subject.values) {
@@ -111,7 +109,7 @@ class GameState extends ChangeNotifier {
     }
     return total;
   }
-  
+
   int getCurrentMaxLevel(Subject subject) {
     final completed = completedLevels[subject] ?? {};
     return completed.isNotEmpty ? completed.reduce((a, b) => a > b ? a : b) : 0;
@@ -122,22 +120,22 @@ class GameState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     Map<Subject, int> loadLevels() => {
-          Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
-          Subject.math: prefs.getInt('math_level') ?? 1,
-          Subject.history: prefs.getInt('history_level') ?? 1,
-        };
+      Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
+      Subject.math: prefs.getInt('math_level') ?? 1,
+      Subject.history: prefs.getInt('history_level') ?? 1,
+    };
 
     Map<Subject, Set<int>> loadCompleted() => {
-          Subject.chemistry: (prefs.getStringList('chemistry_completed') ?? [])
-              .map(int.parse)
-              .toSet(),
-          Subject.math: (prefs.getStringList('math_completed') ?? [])
-              .map(int.parse)
-              .toSet(),
-          Subject.history: (prefs.getStringList('history_completed') ?? [])
-              .map(int.parse)
-              .toSet(),
-        };
+      Subject.chemistry: (prefs.getStringList('chemistry_completed') ?? [])
+          .map(int.parse)
+          .toSet(),
+      Subject.math: (prefs.getStringList('math_completed') ?? [])
+          .map(int.parse)
+          .toSet(),
+      Subject.history: (prefs.getStringList('history_completed') ?? [])
+          .map(int.parse)
+          .toSet(),
+    };
 
     final subjectName = prefs.getString('currentSubject') ?? 'chemistry';
     final subject = Subject.values.firstWhere(
@@ -156,7 +154,8 @@ class GameState extends ChangeNotifier {
       currentSubject: subject,
       currentLevels: loadLevels(),
       completedLevels: loadCompleted(),
-      ownedBackgrounds: prefs.getStringList('ownedBackgrounds') ??
+      ownedBackgrounds:
+          prefs.getStringList('ownedBackgrounds') ??
           ['blue', 'green', 'purple', 'orange'],
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
       ownedFrames: prefs.getStringList('ownedFrames') ?? ['default'],
@@ -189,14 +188,17 @@ class GameState extends ChangeNotifier {
     await prefs.setInt('history_level', currentLevels[Subject.history]!);
 
     await prefs.setStringList(
-        'chemistry_completed',
-        completedLevels[Subject.chemistry]!
-            .map((e) => e.toString())
-            .toList());
-    await prefs.setStringList('math_completed',
-        completedLevels[Subject.math]!.map((e) => e.toString()).toList());
-    await prefs.setStringList('history_completed',
-        completedLevels[Subject.history]!.map((e) => e.toString()).toList());
+      'chemistry_completed',
+      completedLevels[Subject.chemistry]!.map((e) => e.toString()).toList(),
+    );
+    await prefs.setStringList(
+      'math_completed',
+      completedLevels[Subject.math]!.map((e) => e.toString()).toList(),
+    );
+    await prefs.setStringList(
+      'history_completed',
+      completedLevels[Subject.history]!.map((e) => e.toString()).toList(),
+    );
 
     await prefs.setStringList('ownedBackgrounds', ownedBackgrounds);
     await prefs.setString('selectedBackground', selectedBackground);
@@ -265,11 +267,11 @@ class GameState extends ChangeNotifier {
   void completeLevel(int levelNumber) {
     final subject = currentSubject;
     completedLevels[subject]!.add(levelNumber);
-    
+
     if (currentLevels[subject]! <= levelNumber) {
       currentLevels[subject] = levelNumber + 1;
     }
-    
+
     notifyListeners();
     save();
   }
