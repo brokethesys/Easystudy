@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../data/game_state.dart';
 import 'quiz_screen.dart';
 import '../widgets/top_hud.dart';
@@ -13,13 +14,23 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-  late AnimationController _xpController;
-  late Animation<double> _xpAnimation;
+  // =======================
+  // Constants
+  // =======================
+  static const int totalLevels = 25;
+  static const double nodeSize = 75.0;
+  static const double stepY = 100.0;
+  static const double topPadding = 120.0;
+  static const double bottomPadding = 100.0;
 
+  // =======================
+  // Controllers
+  // =======================
+  late final AnimationController _xpController;
+  late Animation<double> _xpAnimation;
   late final ScrollController _scrollController;
 
   double _previousXpRatio = 0.0;
-  Subject currentSubject = Subject.math; // статичный предмет
 
   @override
   void initState() {
@@ -47,62 +58,69 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
     final state = context.watch<GameState>();
-    _updateXpAnimation(state.currentXP / state.xpForNextLevel);
+    final newRatio = state.currentXP / state.xpForNextLevel;
+
+    if (newRatio != _previousXpRatio) {
+      _animateXp(newRatio);
+    }
   }
 
-  void _updateXpAnimation(double newRatio) {
+  // =======================
+  // XP animation
+  // =======================
+  void _animateXp(double targetRatio) {
     _xpAnimation =
-        Tween<double>(begin: _previousXpRatio, end: newRatio).animate(
+        Tween<double>(begin: _previousXpRatio, end: targetRatio).animate(
           CurvedAnimation(parent: _xpController, curve: Curves.easeOutCubic),
         )..addListener(() {
           setState(() {});
         });
 
     _xpController.forward(from: 0);
-    _previousXpRatio = newRatio;
+    _previousXpRatio = targetRatio;
   }
 
-  List<Offset> _calculateLevelCenters(Size screenSize, double mapHeight) {
-    const int totalLevels = 25;
-    const double stepY = 100.0;
-    const double widgetWidth = 75.0;
-
-    final double centerX = screenSize.width / 2;
-    const double bottomPadding = 100.0;
+  // =======================
+  // Map layout
+  // =======================
+  List<Offset> _calculateLevelPositions(Size screenSize, double mapHeight) {
+    final centerX = screenSize.width / 2;
     final rand = Random(42);
 
     double currentY = mapHeight - bottomPadding;
 
-    return List.generate(totalLevels, (i) {
-      if (i != 0) currentY -= stepY;
-      double x = i == 0
-          ? centerX
-          : centerX + sin(i * 1.3) * 60 + (rand.nextDouble() * 10 - 5);
-      return Offset(x - widgetWidth / 2, currentY);
+    return List.generate(totalLevels, (index) {
+      if (index != 0) currentY -= stepY;
+
+      final xOffset = index == 0
+          ? 0.0
+          : sin(index * 1.3) * 60 + (rand.nextDouble() * 10 - 5);
+
+      return Offset(centerX + xOffset - nodeSize / 2, currentY);
     });
   }
 
   List<Widget> _buildLevelNodes(
     BuildContext context,
     GameState state,
-    List<Offset> centers,
-    Size screenSize,
+    List<Offset> positions,
   ) {
-    const double nodeSize = 75.0;
+    return List.generate(positions.length, (index) {
+      final levelNumber = index + 1;
+      final pos = positions[index];
 
-    return List.generate(centers.length, (i) {
-      final c = centers[i];
-      final levelNumber = i + 1;
       final isCompleted =
           state.completedLevels[state.currentSubject]?.contains(levelNumber) ??
           false;
+
       final isCurrent = levelNumber == state.currentLevel;
       final isLocked = levelNumber > state.currentLevel;
 
       return Positioned(
-        top: c.dy,
-        left: c.dx,
+        top: pos.dy,
+        left: pos.dx,
         child: _LevelNode(
           levelNumber: levelNumber,
           isCompleted: isCompleted,
@@ -110,14 +128,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           isLocked: isLocked,
           onTap: () async {
             if (isLocked) return;
+
             final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => QuizScreen(level: levelNumber)),
             );
+
             if (result == true) {
               state.completeLevel(levelNumber);
               state.addXP(50);
-              _updateXpAnimation(state.currentXP / state.xpForNextLevel);
+              _animateXp(state.currentXP / state.xpForNextLevel);
             }
           },
         ),
@@ -125,21 +145,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     });
   }
 
+  // =======================
+  // Build
+  // =======================
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
     final size = MediaQuery.of(context).size;
 
-    const int totalLevels = 25;
-    const double stepY = 100.0;
-    const double topPadding = 120.0;
-    const double bottomPadding = 100.0;
-    final double safeZoneHeight = MediaQuery.of(context).padding.top + 48 + 16;
-    final double mapHeight =
-        topPadding + bottomPadding + (totalLevels - 1) * stepY;
+    final safeZoneHeight = MediaQuery.of(context).padding.top + 48 + 16;
 
-    final centers = _calculateLevelCenters(size, mapHeight);
-    final nodes = _buildLevelNodes(context, state, centers, size);
+    final mapHeight = topPadding + bottomPadding + (totalLevels - 1) * stepY;
+
+    final positions = _calculateLevelPositions(size, mapHeight);
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -159,7 +177,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     right: 0,
                     child: SizedBox(
                       height: mapHeight,
-                      child: Stack(children: nodes),
+                      child: Stack(
+                        children: _buildLevelNodes(context, state, positions),
+                      ),
                     ),
                   ),
                 ],
@@ -173,8 +193,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 }
 
-// ===== Painter и Node =====
-
+// =======================
+// Painter
+// =======================
 class _LevelCirclePainter extends CustomPainter {
   final double progress;
   final Color circleColor;
@@ -195,6 +216,7 @@ class _LevelCirclePainter extends CustomPainter {
       ..color = backgroundColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6;
+
     canvas.drawCircle(center, radius, backgroundPaint);
 
     final progressPaint = Paint()
@@ -203,12 +225,10 @@ class _LevelCirclePainter extends CustomPainter {
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
 
-    double startAngle = -pi / 2;
-    double sweepAngle = 2 * pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepAngle,
+      -pi / 2,
+      2 * pi * progress,
       false,
       progressPaint,
     );
@@ -220,6 +240,9 @@ class _LevelCirclePainter extends CustomPainter {
   }
 }
 
+// =======================
+// Level Node
+// =======================
 class _LevelNode extends StatelessWidget {
   final int levelNumber;
   final bool isCompleted;
@@ -237,23 +260,17 @@ class _LevelNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String asset;
-
-    if (isLocked) {
-      asset = 'assets/images/icon_level_closed-f.png';
-    } else if (isCompleted) {
-      asset = 'assets/images/icon_level_complited-f.png';
-    } else if (isCurrent) {
-      asset = 'assets/images/icon_current_level-blue.png'; // Статичная иконка
-    } else {
-      asset = 'assets/images/icon_current_level-blue.png';
-    }
+    final String asset = isLocked
+        ? 'assets/images/icon_level_closed-f.png'
+        : isCompleted
+        ? 'assets/images/icon_level_complited-f.png'
+        : 'assets/images/icon_current_level-pink.png';
 
     return GestureDetector(
       onTap: isLocked ? null : onTap,
       child: SizedBox(
-        width: 75,
-        height: 75,
+        width: _MapScreenState.nodeSize,
+        height: _MapScreenState.nodeSize,
         child: Image.asset(asset, fit: BoxFit.contain),
       ),
     );

@@ -40,6 +40,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
+  flutter_native_splash: ^2.4.0
   flutter_launcher_icons: "^0.14.4"
   flutter_test:
     sdk: flutter
@@ -81,6 +82,13 @@ flutter:
      - assets/images/frames/
      - assets/images/theory/
      - assets/images/
+  
+flutter_native_splash:
+    color: "#001B33"
+    image: assets/images/icons/main_icon_no-background.png
+    android: true
+    ios: true
+    fullscreen: true
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

@@ -70,6 +70,19 @@ class GameState extends ChangeNotifier {
     _initializeAudio();
   }
 
+  // === Первый запуск приложения ===
+  static Future<bool> isFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final isFirst = prefs.getBool('first_launch') ?? true;
+
+    if (isFirst) {
+      await prefs.setBool('first_launch', false);
+    }
+
+    return isFirst;
+  }
+
   // Инициализация аудио системы
   void _initializeAudio() async {
     await AudioManager().initialize();
