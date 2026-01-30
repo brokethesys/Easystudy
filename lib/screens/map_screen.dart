@@ -131,7 +131,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
             final result = await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => QuizScreen(level: levelNumber)),
+              MaterialPageRoute(
+                builder: (_) => QuizScreen(ticketId: levelNumber),
+              ),
             );
 
             if (result == true) {

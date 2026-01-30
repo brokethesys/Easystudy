@@ -9,194 +9,82 @@ class AchievementsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
 
-    // Функции для вычисления прогресса (изначально 0, но логика работает)
-    int getTotalScore() {
-      // В будущем можно будет считать общий счет из пройденных уровней
-      return 0;
+    // === Вспомогательные функции для прогресса ===
+    int getTotalTicketsCompleted() {
+      return gameState.ticketsProgress.values
+          .where((t) => t.subject == Subject.chemistry && t.answeredQuestions.isNotEmpty)
+          .length;
     }
 
-    int getPerfectLevelsCount() {
-      // В будущем можно будет считать идеально пройденные уровни
-      return 0;
-    }
-
-    int getDaysInRow() {
-      // В будущем можно будет считать дни подряд
-      return 0;
-    }
-
-    int getTotalStars() {
-      // В будущем можно будет считать общее количество звезд
-      return 0;
+    int getPerfectTickets() {
+      // Например, если все вопросы билета отвечены верно
+      return gameState.ticketsProgress.values
+          .where((t) => t.subject == Subject.chemistry)
+          .where((t) => t.answeredQuestions.values.every((v) => v))
+          .length;
     }
 
     int getTotalPlayTime() {
-      // В будущем можно будет считать общее время игры (в минутах)
-      return 0;
+      // Заглушка для примера, в минутах
+      return gameState.coins; // используем временно coins как placeholder
     }
 
+    // === Список достижений ===
     final achievements = [
-      // Прогресс по уровням по всем предметам без учета первых уровней
       {
-        "title": "Пройти 3 уровня",
-        "progress": gameState.totalCompletedLevels,
+        "title": "Пройти 3 билета",
+        "progress": getTotalTicketsCompleted(),
         "goal": 3,
         "reward": 50,
-        "description": "Завершите прохождение 3 уровней",
-        "type": "levels_total",
+        "description": "Завершите 3 билета по Программной инженерии",
+        "type": "tickets",
       },
       {
-        "title": "Пройти 5 уровней",
-        "progress": gameState.totalCompletedLevels,
-        "goal": 5,
-        "reward": 75,
-        "description": "Завершите прохождение 5 уровней",
-        "type": "levels_total",
-      },
-      {
-        "title": "Пройти все 75 уровней",
-        "progress": gameState.totalCompletedLevels,
-        "goal": 75,
-        "reward": 500,
-        "description": "Завершите все 75 уровней игры",
-        "type": "levels_total",
-      },
-      
-      // Прогресс по химии
-      {
-        "title": "Химик-новичок",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry),
-        "goal": 3,
-        "reward": 80,
-        "description": "Пройти 3 уровня по химии",
-        "type": "chemistry_levels",
-      },
-      {
-        "title": "Химик-эксперт",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry),
-        "goal": 10,
-        "reward": 150,
-        "description": "Пройти 10 уровней по химии",
-        "type": "chemistry_levels",
-      },
-      {
-        "title": "Мастер химии",
-        "progress": gameState.getCurrentMaxLevel(Subject.chemistry),
-        "goal": 20,
-        "reward": 300,
-        "description": "Достигнуть 20 уровня в химии",
-        "type": "chemistry_max",
-      },
-      
-      // Прогресс по математике
-      {
-        "title": "Математик-новичок",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.math),
-        "goal": 3,
-        "reward": 80,
-        "description": "Пройти 3 уровня по математике",
-        "type": "math_levels",
-      },
-      {
-        "title": "Математик-эксперт",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.math),
-        "goal": 10,
-        "reward": 150,
-        "description": "Пройти 10 уровней по математике",
-        "type": "math_levels",
-      },
-      {
-        "title": "Мастер математики",
-        "progress": gameState.getCurrentMaxLevel(Subject.math),
-        "goal": 20,
-        "reward": 300,
-        "description": "Достигнуть 20 уровня в математике",
-        "type": "math_max",
-      },
-      
-      // Прогресс по английскому
-      {
-        "title": "Лингвист-новичок",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.history),
-        "goal": 3,
-        "reward": 80,
-        "description": "Пройти 3 уровня по английскому (без учета 1-го уровня)",
-        "type": "english_levels",
-      },
-      {
-        "title": "Лингвист-эксперт",
-        "progress": gameState.getCompletedLevelsCountWithoutFirst(Subject.history),
-        "goal": 5,
-        "reward": 150,
-        "description": "Пройти 5 уровней по английскому (без учета 1-го уровня)",
-        "type": "english_levels",
-      },
-      {
-        "title": "Мастер английского",
-        "progress": gameState.getCurrentMaxLevel(Subject.history),
-        "goal": 10,
-        "reward": 300,
-        "description": "Достигнуть 10 уровня в английском",
-        "type": "english_max",
-      },
-      
-      // Достижения по коллекциям и монетам
-      {
-        "title": "Открыть 5 фонов",
-        "progress": gameState.ownedBackgrounds.length,
+        "title": "Пройти 5 билетов",
+        "progress": getTotalTicketsCompleted(),
         "goal": 5,
         "reward": 100,
-        "description": "Соберите коллекцию из 5 различных фонов",
-        "type": "backgrounds",
+        "description": "Завершите 5 билетов по Программной инженерии",
+        "type": "tickets",
       },
       {
-        "title": "Заработать 500 монет",
-        "progress": gameState.coins,
-        "goal": 500,
-        "reward": 120,
-        "description": "Накопите 500 монет",
-        "type": "coins",
-      },
-      
-      // Новые достижения с нулевым прогрессом
-      {
-        "title": "Набрать 1000 очков",
-        "progress": getTotalScore(),
-        "goal": 1000,
-        "reward": 150,
-        "description": "Наберите в сумме 1000 очков во всех уровнях",
-        "type": "score",
+        "title": "Пройти 10 билетов",
+        "progress": getTotalTicketsCompleted(),
+        "goal": 10,
+        "reward": 200,
+        "description": "Завершите 10 билетов по Программной инженерии",
+        "type": "tickets",
       },
       {
-        "title": "Идеально пройти 3 уровня",
-        "progress": getPerfectLevelsCount(),
+        "title": "Идеально пройти 3 билета",
+        "progress": getPerfectTickets(),
         "goal": 3,
-        "reward": 175,
-        "description": "Завершите 3 уровня с максимальным рейтингом",
+        "reward": 150,
+        "description": "Завершите 3 билета, отвечая на все вопросы верно",
         "type": "perfect",
       },
       {
-        "title": "Играть 7 дней подряд",
-        "progress": getDaysInRow(),
-        "goal": 7,
-        "reward": 200,
-        "description": "Заходите в игру 7 дней подряд",
-        "type": "streak",
-      },
-      {
-        "title": "Собрать 50 звезд",
-        "progress": getTotalStars(),
-        "goal": 50,
-        "reward": 250,
-        "description": "Соберите в общей сложности 50 звезд",
-        "type": "stars",
+        "title": "Провести 30 минут в игре",
+        "progress": getTotalPlayTime(),
+        "goal": 30,
+        "reward": 100,
+        "description": "Проведите 30 минут в игре",
+        "type": "time",
       },
       {
         "title": "Провести 60 минут в игре",
         "progress": getTotalPlayTime(),
         "goal": 60,
-        "reward": 300,
-        "description": "Проведите в игре более 60 минут",
+        "reward": 200,
+        "description": "Проведите 60 минут в игре",
+        "type": "time",
+      },
+      {
+        "title": "Провести 120 минут в игре",
+        "progress": getTotalPlayTime(),
+        "goal": 120,
+        "reward": 350,
+        "description": "Проведите 120 минут в игре",
         "type": "time",
       },
     ];
@@ -226,8 +114,6 @@ class AchievementsScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 10),
-
-              // === Заголовок ===
               const Text(
                 "Достижения",
                 style: TextStyle(
@@ -237,10 +123,7 @@ class AchievementsScreen extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // === Статистика ===
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -257,7 +140,7 @@ class AchievementsScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "Всего пройдено уровней:",
+                          "Пройдено билетов:",
                           style: TextStyle(
                             fontFamily: 'ClashRoyale',
                             fontSize: 14,
@@ -265,30 +148,7 @@ class AchievementsScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          gameState.totalCompletedLevels.toString(),
-                          style: const TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Уровней по химии:",
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        Text(
-                          gameState.getCompletedLevelsCountWithoutFirst(Subject.chemistry).toString(),
+                          getTotalTicketsCompleted().toString(),
                           style: const TextStyle(
                             fontFamily: 'ClashRoyale',
                             fontSize: 16,
@@ -298,56 +158,10 @@ class AchievementsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Уровней по математике:",
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        Text(
-                          gameState.getCompletedLevelsCountWithoutFirst(Subject.math).toString(),
-                          style: const TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Уровней по английскому:",
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        Text(
-                          gameState.getCompletedLevelsCountWithoutFirst(Subject.history).toString(),
-                          style: const TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
               Expanded(
                 child: ListView.builder(
                   itemCount: achievements.length,
@@ -362,17 +176,9 @@ class AchievementsScreen extends StatelessWidget {
                     final completed = percent >= 1.0;
                     final collected = gameState.isAchievementCollected(index);
 
-                    // Определяем цвет полосы прогресса в зависимости от типа достижения
-                    Color progressColor = const Color(0xFF58A700);
-                    if (type.contains("chemistry")) {
-                      progressColor = Colors.green;
-                    } else if (type.contains("math")) {
-                      progressColor = Colors.blue;
-                    } else if (type.contains("english")) {
-                      progressColor = Colors.orange;
-                    } else if (type == "levels_total") {
-                      progressColor = Colors.purple;
-                    }
+                    Color progressColor = Colors.green;
+                    if (type == "perfect") progressColor = Colors.amber;
+                    if (type == "time") progressColor = Colors.blueAccent;
 
                     return Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -409,12 +215,7 @@ class AchievementsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // Помечаем как "НОВОЕ" только те достижения, которые не являются основными
-                              if (type == "score" || 
-                                  type == "perfect" || 
-                                  type == "streak" || 
-                                  type == "stars" || 
-                                  type == "time")
+                              if (type == "perfect" || type == "time")
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 2),
@@ -434,9 +235,7 @@ class AchievementsScreen extends StatelessWidget {
                                 ),
                             ],
                           ),
-
                           const SizedBox(height: 4),
-
                           Text(
                             description,
                             style: const TextStyle(
@@ -445,9 +244,7 @@ class AchievementsScreen extends StatelessWidget {
                               color: Color(0xFF9E9E9E),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
                           Row(
                             children: [
                               Expanded(
@@ -487,20 +284,11 @@ class AchievementsScreen extends StatelessWidget {
                                                 : completed
                                                     ? "Получить награду"
                                                     : "$progress/$goal",
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontFamily: 'ClashRoyale',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.white,
-                                              shadows: progress == 0
-                                                  ? [
-                                                      Shadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.8),
-                                                        blurRadius: 2,
-                                                      )
-                                                    ]
-                                                  : null,
                                             ),
                                           ),
                                         ),
@@ -509,9 +297,7 @@ class AchievementsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-
                               const SizedBox(width: 10),
-
                               Row(
                                 children: [
                                   SizedBox(

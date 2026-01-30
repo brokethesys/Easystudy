@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  vibration: ^3.1.5
   shared_preferences: ^2.3.2
   flutter:
     sdk: flutter
@@ -82,6 +83,7 @@ flutter:
      - assets/images/frames/
      - assets/images/theory/
      - assets/images/
+     - assets/questions/
   
 flutter_native_splash:
     color: "#001B33"

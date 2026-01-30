@@ -9,40 +9,19 @@ final ValueNotifier<String> currentBackground = ValueNotifier<String>('blue');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const AppLoader());
-}
 
-class AppLoader extends StatelessWidget {
-  const AppLoader({super.key});
+  // Загружаем GameState и проверяем первый запуск
+  final gameState = await GameState.load();
+  final firstLaunch = await GameState.isFirstLaunch();
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _loadGameStateAndCheckFirstLaunch(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          // Пока загружается SharedPreferences, показываем пустой контейнер
-          return const SizedBox.shrink();
-        }
-
-        final bool firstLaunch = snapshot.data!['firstLaunch'] as bool;
-        final GameState gameState = snapshot.data!['gameState'] as GameState;
-
-        return MultiProvider(
-          providers: [
-            ChangeNotifierProvider<GameState>.value(value: gameState),
-          ],
-          child: MyApp(showWelcomeScreen: firstLaunch),
-        );
-      },
-    );
-  }
-
-  Future<Map<String, dynamic>> _loadGameStateAndCheckFirstLaunch() async {
-    final gameState = await GameState.load();
-    final firstLaunch = await GameState.isFirstLaunch();
-    return {'gameState': gameState, 'firstLaunch': firstLaunch};
-  }
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<GameState>.value(value: gameState),
+      ],
+      child: MyApp(showWelcomeScreen: firstLaunch),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

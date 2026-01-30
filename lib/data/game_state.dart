@@ -1,15 +1,47 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../audio/audio_manager.dart'; // Добавьте этот импорт
+import '../audio/audio_manager.dart';
 
 enum Subject { chemistry, math, history }
+
+class TicketProgress {
+  final int ticketNumber;
+  final Subject subject;
+  Map<int, bool> answeredQuestions; // ключ: номер вопроса, значение: true/false
+
+  TicketProgress({
+    required this.ticketNumber,
+    required this.subject,
+    Map<int, bool>? answeredQuestions,
+  }) : answeredQuestions = answeredQuestions ?? {};
+
+  // Сериализация для SharedPreferences
+  String serialize() {
+    final answers = answeredQuestions.entries.map((e) => "${e.key}:${e.value}").join(",");
+    return "${subject.name}|$ticketNumber|$answers";
+  }
+
+  static TicketProgress deserialize(String data) {
+    final parts = data.split("|");
+    final subject = Subject.values.firstWhere((s) => s.name == parts[0]);
+    final ticketNumber = int.parse(parts[1]);
+    final answers = <int, bool>{};
+    if (parts.length > 2 && parts[2].isNotEmpty) {
+      for (var q in parts[2].split(",")) {
+        final kv = q.split(":");
+        answers[int.parse(kv[0])] = kv[1] == "true";
+      }
+    }
+    return TicketProgress(ticketNumber: ticketNumber, subject: subject, answeredQuestions: answers);
+  }
+}
 
 class GameState extends ChangeNotifier {
   // === Общие настройки ===
   bool soundEnabled;
   bool musicEnabled;
   bool vibrationEnabled;
-  double musicVolume; // Добавили регулировку громкости
+  double musicVolume;
 
   int playerLevel;
   int currentXP;
@@ -19,6 +51,9 @@ class GameState extends ChangeNotifier {
   Subject currentSubject;
   Map<Subject, int> currentLevels;
   Map<Subject, Set<int>> completedLevels;
+
+  // === Прогресс по билетам ===
+  Map<String, TicketProgress> ticketsProgress = {}; // ключ: "${subject.name}_$ticketNumber"
 
   // === Магазин ===
   List<String> ownedBackgrounds;
@@ -55,106 +90,88 @@ class GameState extends ChangeNotifier {
     this.selectedAvatar = 'default',
     Set<int>? collectedAchievements,
     this.nickname = 'Player',
-  }) : currentLevels =
-           currentLevels ??
-           {Subject.chemistry: 1, Subject.math: 1, Subject.history: 1},
-       completedLevels =
-           completedLevels ??
-           {Subject.chemistry: {}, Subject.math: {}, Subject.history: {}},
-       ownedBackgrounds =
-           ownedBackgrounds ?? ['blue', 'green', 'purple', 'orange'],
-       ownedFrames = ownedFrames ?? ['default'],
-       ownedAvatars = ownedAvatars ?? ['default'],
-       collectedAchievements = collectedAchievements ?? {} {
-    // Инициализируем AudioManager с текущими настройками
+    Map<String, TicketProgress>? ticketsProgress,
+  })  : currentLevels = currentLevels ?? {Subject.chemistry: 1, Subject.math: 1, Subject.history: 1},
+        completedLevels = completedLevels ?? {Subject.chemistry: {}, Subject.math: {}, Subject.history: {}},
+        ownedBackgrounds = ownedBackgrounds ?? ['blue', 'green', 'purple', 'orange'],
+        ownedFrames = ownedFrames ?? ['default'],
+        ownedAvatars = ownedAvatars ?? ['default'],
+        collectedAchievements = collectedAchievements ?? {},
+        ticketsProgress = ticketsProgress ?? {} {
     _initializeAudio();
   }
 
   // === Первый запуск приложения ===
   static Future<bool> isFirstLaunch() async {
     final prefs = await SharedPreferences.getInstance();
-
-    final isFirst = prefs.getBool('first_launch') ?? true;
-
-    if (isFirst) {
-      await prefs.setBool('first_launch', false);
-    }
-
-    return isFirst;
+    final firstLaunch = prefs.getBool('first_launch') ?? true;
+    if (firstLaunch) await prefs.setBool('first_launch', false);
+    return firstLaunch;
   }
 
-  // Инициализация аудио системы
+  // === Инициализация аудио ===
   void _initializeAudio() async {
     await AudioManager().initialize();
-    // Синхронизируем настройки с AudioManager
     AudioManager().setSoundEnabled(soundEnabled);
     AudioManager().setMusicEnabled(musicEnabled);
     AudioManager().setMusicVolume(musicVolume);
   }
 
-  // === Константы ===
+  // === Константы и прогресс ===
   int get xpForNextLevel => 150;
-
-  // Для TopHUD: прогресс опыта от 0.0 до 1.0
-  double get xpRatio {
-    return (currentXP / xpForNextLevel).clamp(0.0, 1.0);
-  }
-
+  double get xpRatio => (currentXP / xpForNextLevel).clamp(0.0, 1.0);
   int get currentLevel => currentLevels[currentSubject] ?? 1;
   Set<int> get subjectCompletedLevels => completedLevels[currentSubject] ?? {};
+  int getCoinsRewardForLevel(int level) => (((level - 1) ~/ 5) + 1) * 100;
 
-  int getCoinsRewardForLevel(int level) {
-    int rewardStage = ((level - 1) ~/ 5) + 1;
-    return rewardStage * 100;
+  // === Прогресс по билетам ===
+  void saveAnswer({
+    required Subject subject,
+    required int ticketNumber,
+    required int questionNumber,
+    required bool isCorrect,
+  }) {
+    final key = "${subject.name}_$ticketNumber";
+    ticketsProgress[key] ??= TicketProgress(ticketNumber: ticketNumber, subject: subject);
+    ticketsProgress[key]!.answeredQuestions[questionNumber] = isCorrect;
+    save();
+    notifyListeners();
   }
 
-  // === Вспомогательные методы для достижений ===
+  TicketProgress? getTicketProgress(Subject subject, int ticketNumber) =>
+      ticketsProgress["${subject.name}_$ticketNumber"];
 
-  int getCompletedLevelsCountWithoutFirst(Subject subject) {
-    final completed = completedLevels[subject] ?? {};
-    return completed.where((level) => level > 0).length;
+  bool isTicketCompleted(Subject subject, int ticketNumber, int totalQuestions) {
+    final ticket = getTicketProgress(subject, ticketNumber);
+    if (ticket == null) return false;
+    return ticket.answeredQuestions.length == totalQuestions;
   }
 
-  int get totalCompletedLevels {
-    int total = 0;
-    for (var subject in Subject.values) {
-      total += getCompletedLevelsCountWithoutFirst(subject);
-    }
-    return total;
-  }
-
-  int getCurrentMaxLevel(Subject subject) {
-    final completed = completedLevels[subject] ?? {};
-    return completed.isNotEmpty ? completed.reduce((a, b) => a > b ? a : b) : 0;
-  }
-
-  // === Загрузка ===
+  // === Загрузка GameState ===
   static Future<GameState> load() async {
     final prefs = await SharedPreferences.getInstance();
 
     Map<Subject, int> loadLevels() => {
-      Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
-      Subject.math: prefs.getInt('math_level') ?? 1,
-      Subject.history: prefs.getInt('history_level') ?? 1,
-    };
+          Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
+          Subject.math: prefs.getInt('math_level') ?? 1,
+          Subject.history: prefs.getInt('history_level') ?? 1,
+        };
 
     Map<Subject, Set<int>> loadCompleted() => {
-      Subject.chemistry: (prefs.getStringList('chemistry_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-      Subject.math: (prefs.getStringList('math_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-      Subject.history: (prefs.getStringList('history_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-    };
+          Subject.chemistry: (prefs.getStringList('chemistry_completed') ?? []).map(int.parse).toSet(),
+          Subject.math: (prefs.getStringList('math_completed') ?? []).map(int.parse).toSet(),
+          Subject.history: (prefs.getStringList('history_completed') ?? []).map(int.parse).toSet(),
+        };
+
+    final ticketList = prefs.getStringList('ticketsProgress') ?? [];
+    Map<String, TicketProgress> tickets = {};
+    for (var str in ticketList) {
+      final ticket = TicketProgress.deserialize(str);
+      tickets["${ticket.subject.name}_${ticket.ticketNumber}"] = ticket;
+    }
 
     final subjectName = prefs.getString('currentSubject') ?? 'chemistry';
-    final subject = Subject.values.firstWhere(
-      (s) => s.name == subjectName,
-      orElse: () => Subject.chemistry,
-    );
+    final subject = Subject.values.firstWhere((s) => s.name == subjectName, orElse: () => Subject.chemistry);
 
     return GameState(
       soundEnabled: prefs.getBool('soundEnabled') ?? true,
@@ -167,23 +184,19 @@ class GameState extends ChangeNotifier {
       currentSubject: subject,
       currentLevels: loadLevels(),
       completedLevels: loadCompleted(),
-      ownedBackgrounds:
-          prefs.getStringList('ownedBackgrounds') ??
-          ['blue', 'green', 'purple', 'orange'],
+      ownedBackgrounds: prefs.getStringList('ownedBackgrounds') ?? ['blue', 'green', 'purple', 'orange'],
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
       ownedFrames: prefs.getStringList('ownedFrames') ?? ['default'],
       selectedFrame: prefs.getString('selectedFrame') ?? 'default',
       ownedAvatars: prefs.getStringList('ownedAvatars') ?? ['default'],
       selectedAvatar: prefs.getString('selectedAvatar') ?? 'default',
-      collectedAchievements:
-          (prefs.getStringList('collectedAchievements') ?? [])
-              .map(int.parse)
-              .toSet(),
+      collectedAchievements: (prefs.getStringList('collectedAchievements') ?? []).map(int.parse).toSet(),
       nickname: prefs.getString('nickname') ?? 'Player',
+      ticketsProgress: tickets,
     );
   }
 
-  // === Сохранение ===
+  // === Сохранение GameState ===
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -194,43 +207,27 @@ class GameState extends ChangeNotifier {
     await prefs.setInt('playerLevel', playerLevel);
     await prefs.setInt('currentXP', currentXP);
     await prefs.setInt('coins', coins);
-
     await prefs.setString('currentSubject', currentSubject.name);
     await prefs.setInt('chemistry_level', currentLevels[Subject.chemistry]!);
     await prefs.setInt('math_level', currentLevels[Subject.math]!);
     await prefs.setInt('history_level', currentLevels[Subject.history]!);
-
-    await prefs.setStringList(
-      'chemistry_completed',
-      completedLevels[Subject.chemistry]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'math_completed',
-      completedLevels[Subject.math]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'history_completed',
-      completedLevels[Subject.history]!.map((e) => e.toString()).toList(),
-    );
-
+    await prefs.setStringList('chemistry_completed', completedLevels[Subject.chemistry]!.map((e) => e.toString()).toList());
+    await prefs.setStringList('math_completed', completedLevels[Subject.math]!.map((e) => e.toString()).toList());
+    await prefs.setStringList('history_completed', completedLevels[Subject.history]!.map((e) => e.toString()).toList());
     await prefs.setStringList('ownedBackgrounds', ownedBackgrounds);
     await prefs.setString('selectedBackground', selectedBackground);
-
     await prefs.setStringList('ownedFrames', ownedFrames);
     await prefs.setString('selectedFrame', selectedFrame);
-
     await prefs.setStringList('ownedAvatars', ownedAvatars);
     await prefs.setString('selectedAvatar', selectedAvatar);
-
-    await prefs.setStringList(
-      'collectedAchievements',
-      collectedAchievements.map((e) => e.toString()).toList(),
-    );
-
+    await prefs.setStringList('collectedAchievements', collectedAchievements.map((e) => e.toString()).toList());
     await prefs.setString('nickname', nickname);
+
+    // Сохраняем прогресс билетов
+    await prefs.setStringList('ticketsProgress', ticketsProgress.values.map((t) => t.serialize()).toList());
   }
 
-  // === Сеттеры для настроек звука ===
+  // === Сеттеры и функционал магазина, уровней, XP ===
   set setSoundEnabled(bool value) {
     soundEnabled = value;
     AudioManager().setSoundEnabled(value);
@@ -258,14 +255,12 @@ class GameState extends ChangeNotifier {
     save();
   }
 
-  // === Переключение предмета ===
   void switchSubject(Subject subject) {
     currentSubject = subject;
     notifyListeners();
     save();
   }
 
-  // === Обновления прогресса ===
   void addXP(int xp) {
     currentXP += xp;
     while (currentXP >= xpForNextLevel) {
@@ -280,49 +275,14 @@ class GameState extends ChangeNotifier {
   void completeLevel(int levelNumber) {
     final subject = currentSubject;
     completedLevels[subject]!.add(levelNumber);
-
-    if (currentLevels[subject]! <= levelNumber) {
+    if ((currentLevels[subject] ?? 1) <= levelNumber) {
       currentLevels[subject] = levelNumber + 1;
     }
-
     notifyListeners();
     save();
   }
 
-  // === Сброс прогресса ===
-  Future<void> resetProgress({Subject? subject}) async {
-    if (subject != null) {
-      completedLevels[subject]!.clear();
-      currentLevels[subject] = 1;
-    } else {
-      for (var s in Subject.values) {
-        completedLevels[s]!.clear();
-        currentLevels[s] = 1;
-      }
-      playerLevel = 1;
-      currentXP = 0;
-      coins = 0;
-      ownedBackgrounds = ['blue', 'green', 'purple', 'orange'];
-      selectedBackground = 'blue';
-      ownedFrames = ['default'];
-      selectedFrame = 'default';
-      ownedAvatars = ['default'];
-      selectedAvatar = 'default';
-      collectedAchievements.clear();
-      // Сброс настроек аудио к значениям по умолчанию
-      soundEnabled = true;
-      musicEnabled = true;
-      vibrationEnabled = true;
-      musicVolume = 0.7;
-      AudioManager().setSoundEnabled(true);
-      AudioManager().setMusicEnabled(true);
-      AudioManager().setMusicVolume(0.7);
-    }
-    notifyListeners();
-    await save();
-  }
-
-  // === Магазин ===
+  // === Магазин и достижения ===
   void selectBackground(String id) {
     if (ownedBackgrounds.contains(id)) {
       selectedBackground = id;
@@ -383,9 +343,7 @@ class GameState extends ChangeNotifier {
     return false;
   }
 
-  // === Достижения ===
-  bool isAchievementCollected(int index) =>
-      collectedAchievements.contains(index);
+  bool isAchievementCollected(int index) => collectedAchievements.contains(index);
 
   void collectAchievement(int index, int reward) {
     if (!collectedAchievements.contains(index)) {
@@ -396,7 +354,38 @@ class GameState extends ChangeNotifier {
     }
   }
 
-  // === Жизненный цикл ===
+  Future<void> resetProgress({Subject? subject}) async {
+    if (subject != null) {
+      completedLevels[subject]!.clear();
+      currentLevels[subject] = 1;
+    } else {
+      for (var s in Subject.values) {
+        completedLevels[s]!.clear();
+        currentLevels[s] = 1;
+      }
+      playerLevel = 1;
+      currentXP = 0;
+      coins = 0;
+      ownedBackgrounds = ['blue', 'green', 'purple', 'orange'];
+      selectedBackground = 'blue';
+      ownedFrames = ['default'];
+      selectedFrame = 'default';
+      ownedAvatars = ['default'];
+      selectedAvatar = 'default';
+      collectedAchievements.clear();
+      ticketsProgress.clear();
+      soundEnabled = true;
+      musicEnabled = true;
+      vibrationEnabled = true;
+      musicVolume = 0.7;
+      AudioManager().setSoundEnabled(true);
+      AudioManager().setMusicEnabled(true);
+      AudioManager().setMusicVolume(0.7);
+    }
+    notifyListeners();
+    await save();
+  }
+
   @override
   void dispose() {
     AudioManager().dispose();
