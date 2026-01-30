@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../data/game_state.dart';
 
 class SubquestionScreen extends StatefulWidget {
   final List<dynamic> subquestions;
   final int startIndex;
+  final int ticketId;
+  final Subject subject;
 
   const SubquestionScreen({
     super.key,
     required this.subquestions,
     this.startIndex = 0,
+    required this.ticketId,
+    required this.subject,
   });
 
   @override
@@ -47,6 +53,9 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     questionsQueue = List.from(widget.subquestions);
     currentIndex = widget.startIndex.clamp(0, questionsQueue.length - 1);
 
+    // Загружаем текущий прогресс
+    _loadCurrentProgress();
+
     progressController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -69,6 +78,33 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     );
 
     progressController.forward();
+  }
+
+  void _loadCurrentProgress() {
+    final gameState = context.read<GameState>();
+    final ticketProgress = gameState.getTicketProgress(
+      widget.subject,
+      widget.ticketId,
+    );
+
+    if (ticketProgress != null) {
+      // Подсчитываем правильные ответы
+      correctAnswers = ticketProgress.answeredQuestions.values
+          .where((v) => v == true)
+          .length;
+
+      // Находим последний отвеченный вопрос
+      if (ticketProgress.answeredQuestions.isNotEmpty) {
+        final maxAnsweredIndex = ticketProgress.answeredQuestions.keys.reduce(
+          (a, b) => a > b ? a : b,
+        );
+        
+        // Если startIndex меньше последнего отвеченного, используем последний отвеченный
+        if (maxAnsweredIndex > widget.startIndex) {
+          currentIndex = maxAnsweredIndex;
+        }
+      }
+    }
   }
 
   @override
@@ -94,6 +130,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     final current = questionsQueue[currentIndex];
     final correct = current['correct_answer'];
     final type = current['type'];
+    final questionNumber = currentIndex; // номер текущего вопроса
 
     bool isCorrect = false;
 
@@ -106,6 +143,15 @@ class _SubquestionScreenState extends State<SubquestionScreen>
           selectedOptions.length == correctSet.length &&
           selectedOptions.containsAll(correctSet);
     }
+
+    // Сохраняем ответ в GameState
+    final gameState = context.read<GameState>();
+    gameState.saveAnswer(
+      subject: widget.subject,
+      ticketNumber: widget.ticketId,
+      questionNumber: questionNumber,
+      isCorrect: isCorrect,
+    );
 
     setState(() {
       answeredCorrectly = isCorrect;
@@ -216,12 +262,25 @@ class _SubquestionScreenState extends State<SubquestionScreen>
             ? Colors.yellow.shade700
             : const Color(0xFFEE5654);
 
+    // Проверяем, был ли уже отвечен этот вопрос
+    final gameState = context.read<GameState>();
+    final ticketProgress = gameState.getTicketProgress(
+      widget.subject,
+      widget.ticketId,
+    );
+    final isAlreadyAnswered = ticketProgress?.answeredQuestions.containsKey(currentIndex) ?? false;
+    final wasPreviousCorrect = ticketProgress?.answeredQuestions[currentIndex] ?? false;
+
     // Кнопка действия
     String buttonText = 'ПРОВЕРИТЬ';
     Color buttonColor = const Color(0xFF92D331);
     Color textColor = const Color(0xFF101E27);
 
-    if (showExplanation) {
+    if (isAlreadyAnswered && wasPreviousCorrect && !showExplanation) {
+      // Если вопрос уже правильно отвечен ранее
+      buttonText = 'ПРОДОЛЖИТЬ';
+      buttonColor = const Color(0xFF92D333);
+    } else if (showExplanation) {
       if (answeredCorrectly) {
         buttonText = 'ПРОДОЛЖИТЬ';
         buttonColor = explanationColor;
@@ -300,25 +359,32 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                     itemCount: options.length,
                     itemBuilder: (_, index) {
                       final isSelected = selectedOptions.contains(index);
+                      
+                      // Проверяем правильность варианта
+                      final correct = current['correct_answer'];
+                      final isCorrectOption = isMultiple
+                          ? (correct as List).contains(index)
+                          : index == correct;
 
                       Color color = Colors.white70;
                       IconData icon = isMultiple
                           ? Icons.check_box_outline_blank
                           : Icons.radio_button_unchecked;
 
-                      if (!showExplanation && isSelected) {
+                      if (isAlreadyAnswered && wasPreviousCorrect) {
+                        // Если вопрос уже правильно отвечен
+                        if (isCorrectOption) {
+                          color = const Color(0xFF92D333);
+                          icon = isMultiple
+                              ? Icons.check_box
+                              : Icons.radio_button_checked;
+                        }
+                      } else if (!showExplanation && isSelected) {
                         icon = isMultiple
                             ? Icons.check_box
                             : Icons.radio_button_checked;
                         color = Colors.blueAccent;
-                      }
-
-                      if (showExplanation) {
-                        final correct = current['correct_answer'];
-                        final isCorrectOption = isMultiple
-                            ? (correct as List).contains(index)
-                            : index == correct;
-
+                      } else if (showExplanation) {
                         if (isFirstWrongAttempt) {
                           if (isSelected) {
                             color = Colors.yellow.shade700;
@@ -343,13 +409,18 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                         }
                       }
 
+                      // Если вопрос уже отвечен правильно, блокируем выбор
+                      final isDisabled = isAlreadyAnswered && wasPreviousCorrect;
+
                       return GestureDetector(
-                        onTap: showExplanation && !isFirstWrongAttempt
+                        onTap: isDisabled
                             ? null
-                            : () {
-                                HapticFeedback.selectionClick();
-                                _toggleOption(index, isMultiple);
-                              },
+                            : (showExplanation && !isFirstWrongAttempt)
+                                ? null
+                                : () {
+                                    HapticFeedback.selectionClick();
+                                    _toggleOption(index, isMultiple);
+                                  },
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           padding: const EdgeInsets.all(12),
@@ -383,7 +454,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
             ),
           ),
 
-          if (showExplanation)
+          if (showExplanation || (isAlreadyAnswered && wasPreviousCorrect))
             Positioned(
               left: 0,
               right: 0,
@@ -407,7 +478,9 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: explanationColor.withOpacity(0.3),
+                        color: (isAlreadyAnswered && wasPreviousCorrect)
+                            ? const Color(0xFF92D333).withOpacity(0.3)
+                            : explanationColor.withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, -4),
                       ),
@@ -418,24 +491,29 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          explanationTitle,
+                          isAlreadyAnswered && wasPreviousCorrect 
+                            ? 'Вы уже ответили правильно на этот вопрос'
+                            : explanationTitle,
                           style: TextStyle(
                             fontFamily: 'ClashRoyale',
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: explanationColor,
+                            color: isAlreadyAnswered && wasPreviousCorrect
+                                ? const Color(0xFF92D333)
+                                : explanationColor,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          explanationText,
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: explanationColor,
-                            height: 1.4,
+                        if (!(isAlreadyAnswered && wasPreviousCorrect))
+                          Text(
+                            explanationText,
+                            style: TextStyle(
+                              fontFamily: 'ClashRoyale',
+                              fontSize: 14,
+                              color: explanationColor,
+                              height: 1.4,
+                            ),
                           ),
-                        ),
                         if (isSecondWrongAttempt)
                           const SizedBox(height: 8),
                         if (isSecondWrongAttempt)
@@ -460,21 +538,23 @@ class _SubquestionScreenState extends State<SubquestionScreen>
             right: 16,
             bottom: actionButtonBottom,
             child: GestureDetector(
-              onTap: selectedOptions.isEmpty && !showExplanation && !isFirstWrongAttempt
-                  ? null
-                  : () {
-                      HapticFeedback.selectionClick();
+              onTap: () {
+                HapticFeedback.selectionClick();
 
-                      if (showExplanation) {
-                        if (answeredCorrectly || isSecondWrongAttempt) {
-                          _nextQuestion();
-                        } else if (isFirstWrongAttempt) {
-                          _retryQuestion();
-                        }
-                      } else {
-                        _confirmAnswer();
-                      }
-                    },
+                if (isAlreadyAnswered && wasPreviousCorrect) {
+                  // Если вопрос уже правильно отвечен, просто переходим дальше
+                  _nextQuestion();
+                } else if (showExplanation) {
+                  if (answeredCorrectly || isSecondWrongAttempt) {
+                    _nextQuestion();
+                  } else if (isFirstWrongAttempt) {
+                    _retryQuestion();
+                  }
+                } else {
+                  if (selectedOptions.isEmpty) return;
+                  _confirmAnswer();
+                }
+              },
               child: Container(
                 height: actionButtonHeight,
                 decoration: BoxDecoration(

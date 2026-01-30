@@ -14,8 +14,7 @@ class QuizScreen extends StatefulWidget {
   State<QuizScreen> createState() => _QuizScreenState();
 }
 
-class _QuizScreenState extends State<QuizScreen>
-    with TickerProviderStateMixin {
+class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   Map<String, dynamic>? ticketData;
 
   late AnimationController _progressController;
@@ -78,12 +77,36 @@ class _QuizScreenState extends State<QuizScreen>
 
     totalSubquestions = (ticket['subquestions'] as List).length;
 
-    _progressAnimation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
+    final gameState = context.read<GameState>();
+    final subject = gameState.currentSubject;
+    final ticketProgress = gameState.getTicketProgress(
+      subject,
+      widget.ticketId,
     );
+
+    // Правильно считаем правильные ответы
+    if (ticketProgress != null) {
+      correctAnswers = ticketProgress.answeredQuestions.values
+          .where((v) => v == true) // Только правильные ответы
+          .length;
+      lastSubquestionIndex = ticketProgress.lastAnsweredIndex;
+    } else {
+      correctAnswers = 0;
+      lastSubquestionIndex = 0;
+    }
+
+    // Прогресс анимации сразу на правильное значение
+    _progressAnimation =
+        Tween<double>(
+          begin: correctAnswers / totalSubquestions,
+          end: correctAnswers / totalSubquestions,
+        ).animate(
+          CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
+        );
 
     setState(() {
       ticketData = ticket;
+      startedLearning = lastSubquestionIndex > 0;
     });
   }
 
@@ -96,6 +119,16 @@ class _QuizScreenState extends State<QuizScreen>
       startedLearning = true;
     });
 
+    final gameState = context.read<GameState>();
+    final subject = gameState.currentSubject;
+
+    // Загружаем текущий прогресс перед началом
+    final ticketProgress = gameState.getTicketProgress(subject, widget.ticketId);
+    final currentCorrect = ticketProgress?.answeredQuestions.values
+        .where((v) => v == true)
+        .length ?? 0;
+    final currentLastIndex = ticketProgress?.lastAnsweredIndex ?? 0;
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -103,42 +136,74 @@ class _QuizScreenState extends State<QuizScreen>
           subquestions: List<Map<String, dynamic>>.from(
             ticketData!['subquestions'],
           ),
-          startIndex: lastSubquestionIndex,
+          startIndex: currentLastIndex,
+          ticketId: widget.ticketId,
+          subject: subject,
         ),
       ),
     );
 
     if (result != null && result is Map<String, dynamic>) {
-      final int newCorrect = result['answered'] ?? correctAnswers;
-      final int lastIndex = result['lastIndex'] ?? lastSubquestionIndex;
+      final int newCorrect = result['answered'] ?? currentCorrect;
+      final int lastIndex = result['lastIndex'] ?? currentLastIndex;
 
       setState(() {
         correctAnswers = newCorrect;
         lastSubquestionIndex = lastIndex;
 
-        _progressAnimation = Tween<double>(
-          begin: _progressAnimation.value,
-          end: correctAnswers / totalSubquestions,
-        ).animate(
-          CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
-        );
+        // Анимация от текущего состояния до нового прогресса
+        _progressAnimation =
+            Tween<double>(
+              begin: _progressAnimation.value,
+              end: correctAnswers / totalSubquestions,
+            ).animate(
+              CurvedAnimation(
+                parent: _progressController,
+                curve: Curves.easeOut,
+              ),
+            );
 
         _progressController.forward(from: 0);
 
-        // === Проверка на разблокировку следующего уровня ===
-        final half = totalSubquestions ~/ 2;
-        if (correctAnswers >= half) {
-          final gameState = context.read<GameState>();
-          final currentLevel = gameState.currentLevels[gameState.currentSubject] ?? 1;
-
-          // Если уровень ещё не завершён, разблокируем
-          if (!(gameState.subjectCompletedLevels.contains(currentLevel))) {
-            gameState.completeLevel(currentLevel);
+        // === РАЗБЛОКИРОВКА СЛЕДУЮЩЕГО БИЛЕТА И УРОВНЯ ===
+        // Проверяем, полностью ли завершен текущий билет
+        final bool isTicketCompleted = correctAnswers == totalSubquestions;
+        
+        if (isTicketCompleted) {
+      
+          
+          // Разблокируем следующий билет
+          final nextTicketId = widget.ticketId + 1;
+          
+          
+          // Проверяем, все ли билеты текущего уровня завершены
+          final currentLevel = gameState.currentLevel;
+          final allTickets = gameState.getTicketsForLevel(currentLevel);
+          final currentTicketIndex = allTickets.indexOf(widget.ticketId);
+          
+          if (currentTicketIndex == allTickets.length - 1) {
+       
+            final allTicketsCompleted = gameState.areAllTicketsCompletedInLevel(currentLevel);
+            
+            // Если все билеты уровня пройдены, разблокируем следующий уровень
+            if (allTicketsCompleted) {
+              final nextLevel = currentLevel + 1;
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Поздравляем! Уровень $nextLevel открыт 🎉'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } else {
+            // Разблокируем следующий билет в текущем уровне
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Поздравляем! Следующий уровень открыт 🎉'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text('Билет ${nextTicketId} теперь доступен!'),
+                backgroundColor: Colors.blue,
+                duration: const Duration(seconds: 1),
               ),
             );
           }
@@ -181,9 +246,7 @@ class _QuizScreenState extends State<QuizScreen>
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
-                shadows: [
-                  Shadow(color: Colors.black, blurRadius: 2),
-                ],
+                shadows: [Shadow(color: Colors.black, blurRadius: 2)],
               ),
             ),
           ),
@@ -193,27 +256,31 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   Widget _buildActionButton() {
+    final gameState = context.read<GameState>();
+    final isUnlocked = gameState.isTicketUnlocked(widget.ticketId);
+    
     return GestureDetector(
       onTapDown: (_) => _buttonController.reverse(),
       onTapUp: (_) => _buttonController.forward(),
       onTapCancel: () => _buttonController.forward(),
-      onTap: _startLearning,
+      onTap: isUnlocked ? _startLearning : null,
       child: ScaleTransition(
         scale: _buttonScale,
         child: Container(
           height: actionButtonHeight,
           decoration: BoxDecoration(
-            color: const Color(0xFF92D331),
+            color: isUnlocked ? const Color(0xFF92D331) : Colors.grey,
             borderRadius: BorderRadius.circular(14),
           ),
           alignment: Alignment.center,
           child: Text(
-            startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ',
-            style: const TextStyle(
+            !isUnlocked ? 'ЗАБЛОКИРОВАНО' : 
+            (startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ'),
+            style: TextStyle(
               fontFamily: 'ClashRoyale',
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF101E27),
+              color: isUnlocked ? const Color(0xFF101E27) : Colors.white70,
             ),
           ),
         ),
@@ -224,6 +291,8 @@ class _QuizScreenState extends State<QuizScreen>
   @override
   Widget build(BuildContext context) {
     final theoryText = ticketData?['theory'] ?? '';
+    final gameState = context.read<GameState>();
+    final isUnlocked = gameState.isTicketUnlocked(widget.ticketId);
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -258,6 +327,33 @@ class _QuizScreenState extends State<QuizScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (!isUnlocked) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lock, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Сначала завершите предыдущий билет',
+                                  style: const TextStyle(
+                                    fontFamily: 'ClashRoyale',
+                                    fontSize: 14,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       Text(
                         ticketData!['question'] ?? '',
                         style: const TextStyle(
@@ -266,11 +362,9 @@ class _QuizScreenState extends State<QuizScreen>
                           color: Colors.white,
                         ),
                       ),
-
                       const SizedBox(height: 20),
                       _buildProgressBar(),
                       const SizedBox(height: 24),
-
                       const Text(
                         'Вопросы для подготовки:',
                         style: TextStyle(
@@ -281,30 +375,62 @@ class _QuizScreenState extends State<QuizScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-
                       ...List.generate(
                         (ticketData!['subquestions'] as List).length,
                         (index) {
                           final sub = ticketData!['subquestions'][index];
+                          final gameState = context.read<GameState>();
+                          final subject = gameState.currentSubject;
+                          final ticketProgress = gameState.getTicketProgress(subject, widget.ticketId);
+                          
+                          // Проверяем, отвечен ли этот вопрос
+                          final isAnswered = ticketProgress?.answeredQuestions.containsKey(index) ?? false;
+                          final isCorrect = ticketProgress?.answeredQuestions[index] ?? false;
+                          
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1F2C36),
+                              color: isAnswered 
+                                ? (isCorrect 
+                                    ? const Color(0xFF2A3A45).withOpacity(0.7)
+                                    : const Color(0xFF5A2A2A).withOpacity(0.7))
+                                : const Color(0xFF1F2C36),
                               borderRadius: BorderRadius.circular(8),
+                              border: isAnswered 
+                                ? Border.all(
+                                    color: isCorrect 
+                                      ? const Color(0xFF58A700) 
+                                      : const Color(0xFFD32F2F), 
+                                    width: 1)
+                                : null,
                             ),
-                            child: Text(
-                              '${index + 1}. ${sub['question']}',
-                              style: const TextStyle(
-                                fontFamily: 'ClashRoyale',
-                                fontSize: 14,
-                                color: Colors.white70,
-                              ),
+                            child: Row(
+                              children: [
+                                if (isAnswered)
+                                  Icon(
+                                    isCorrect ? Icons.check_circle : Icons.cancel,
+                                    color: isCorrect ? const Color(0xFF58A700) : const Color(0xFFD32F2F),
+                                    size: 16,
+                                  ),
+                                if (isAnswered) const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${index + 1}. ${sub['question']}',
+                                    style: TextStyle(
+                                      fontFamily: 'ClashRoyale',
+                                      fontSize: 14,
+                                      color: isAnswered 
+                                        ? Colors.white 
+                                        : Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         },
                       ),
-
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -361,9 +487,7 @@ class _QuizScreenState extends State<QuizScreen>
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   Text(
-                                    theoryExpanded
-                                        ? 'Свернуть'
-                                        : 'Развернуть',
+                                    theoryExpanded ? 'Свернуть' : 'Развернуть',
                                     style: const TextStyle(
                                       fontFamily: 'ClashRoyale',
                                       fontSize: 14,
@@ -383,7 +507,6 @@ class _QuizScreenState extends State<QuizScreen>
                           ],
                         ),
                       ),
-
                       if (theoryExpanded) ...[
                         const SizedBox(height: 24),
                         _buildActionButton(),
@@ -391,7 +514,6 @@ class _QuizScreenState extends State<QuizScreen>
                     ],
                   ),
                 ),
-
                 if (!theoryExpanded)
                   Positioned(
                     left: 16,
