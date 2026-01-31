@@ -30,6 +30,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late Animation<double> _xpAnimation;
   late final ScrollController _scrollController;
 
+  // Для анимации нажатия
+  final Map<int, AnimationController> _tapControllers = {};
+  final Map<int, Animation<double>> _tapAnimations = {};
+
   double _previousXpRatio = 0.0;
 
   @override
@@ -52,6 +56,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void dispose() {
     _xpController.dispose();
     _scrollController.dispose();
+    // Диспос всех контроллеров нажатия
+    for (final controller in _tapControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -80,6 +88,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     _xpController.forward(from: 0);
     _previousXpRatio = targetRatio;
+  }
+
+  // =======================
+  // Tap animation methods
+  // =======================
+  void _initializeTapController(int levelNumber) {
+    if (_tapControllers.containsKey(levelNumber)) return;
+
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+
+    final animation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(
+        parent: controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _tapControllers[levelNumber] = controller;
+    _tapAnimations[levelNumber] = animation;
+  }
+
+  void _onTapDown(int levelNumber) {
+    _initializeTapController(levelNumber);
+    final controller = _tapControllers[levelNumber]!;
+    controller.forward(from: 0);
+  }
+
+  void _onTapUp(int levelNumber) {
+    final controller = _tapControllers[levelNumber];
+    if (controller != null) {
+      controller.reverse();
+    }
   }
 
   // =======================
@@ -113,7 +156,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
       final isCompleted =
           state.completedLevels[state.currentSubject]?.contains(levelNumber) ??
-          false;
+              false;
 
       final isCurrent = levelNumber == state.currentLevel;
       final isLocked = levelNumber > state.currentLevel;
@@ -126,6 +169,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           isCompleted: isCompleted,
           isCurrent: isCurrent,
           isLocked: isLocked,
+          nodeSize: nodeSize, // Передаем константу как параметр
+          onTapDown: () => _onTapDown(levelNumber),
+          onTapUp: () => _onTapUp(levelNumber),
           onTap: () async {
             if (isLocked) return;
 
@@ -154,10 +200,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
     final size = MediaQuery.of(context).size;
+    final padding = MediaQuery.of(context).padding;
 
-    final safeZoneHeight = MediaQuery.of(context).padding.top + 48 + 16;
+    final hudHeight = 48 + 16; // Высота TopHUD + отступ
+    final safeZoneHeight = hudHeight;
 
     final mapHeight = topPadding + bottomPadding + (totalLevels - 1) * stepY;
+    final totalHeight = mapHeight + safeZoneHeight + padding.top;
 
     final positions = _calculateLevelPositions(size, mapHeight);
 
@@ -165,30 +214,62 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       backgroundColor: const Color(0xFF131F24),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            controller: _scrollController,
-            reverse: true,
-            physics: const ClampingScrollPhysics(),
-            child: SizedBox(
-              height: mapHeight + safeZoneHeight,
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: safeZoneHeight,
-                    left: 0,
-                    right: 0,
-                    child: SizedBox(
-                      height: mapHeight,
-                      child: Stack(
-                        children: _buildLevelNodes(context, state, positions),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          // Заливка над safe area (статус бар и т.д.)
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xFF131F24),
             ),
           ),
-          const TopHUD(),
+          
+          SafeArea(
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  controller: _scrollController,
+                  reverse: true,
+                  physics: const ClampingScrollPhysics(),
+                  child: SizedBox(
+                    height: totalHeight,
+                    child: Stack(
+                      children: [
+                        // Фоновая заливка сверху (скрывает часть карты над HUD)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: safeZoneHeight.toDouble(),
+                          child: Container(
+                            color: const Color(0xFF131F24),
+                          ),
+                        ),
+                        
+                        // Карта с уровнями
+                        Positioned(
+                          top: safeZoneHeight.toDouble(),
+                          left: 0,
+                          right: 0,
+                          child: SizedBox(
+                            height: mapHeight,
+                            child: Stack(
+                              children: _buildLevelNodes(context, state, positions),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // TopHUD поверх всего
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: TopHUD(),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -245,35 +326,147 @@ class _LevelCirclePainter extends CustomPainter {
 // =======================
 // Level Node
 // =======================
-class _LevelNode extends StatelessWidget {
+class _LevelNode extends StatefulWidget {
   final int levelNumber;
   final bool isCompleted;
   final bool isLocked;
   final bool isCurrent;
+  final double nodeSize; // Добавляем параметр для размера
   final VoidCallback onTap;
+  final VoidCallback onTapDown;
+  final VoidCallback onTapUp;
 
   const _LevelNode({
     required this.levelNumber,
     required this.isCompleted,
     required this.isLocked,
     required this.isCurrent,
+    required this.nodeSize,
     required this.onTap,
+    required this.onTapDown,
+    required this.onTapUp,
   });
 
   @override
+  State<_LevelNode> createState() => _LevelNodeState();
+}
+
+class _LevelNodeState extends State<_LevelNode> with TickerProviderStateMixin {
+  late AnimationController _tapController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _shadowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _tapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.85),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.85, end: 1.0),
+        weight: 50,
+      ),
+    ]).animate(
+      CurvedAnimation(
+        parent: _tapController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _shadowAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0),
+        weight: 50,
+      ),
+    ]).animate(
+      CurvedAnimation(
+        parent: _tapController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _tapController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    widget.onTapDown();
+    _tapController.forward();
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    widget.onTapUp();
+    _tapController.reverse();
+  }
+
+  void _handleTapCancel() {
+    widget.onTapUp();
+    _tapController.reverse();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String asset = isLocked
+    final String asset = widget.isLocked
         ? 'assets/images/icon_level_closed-f.png'
-        : isCompleted
+        : widget.isCompleted
         ? 'assets/images/icon_level_complited-f.png'
         : 'assets/images/icon_current_level-pink.png';
 
     return GestureDetector(
-      onTap: isLocked ? null : onTap,
-      child: SizedBox(
-        width: _MapScreenState.nodeSize,
-        height: _MapScreenState.nodeSize,
-        child: Image.asset(asset, fit: BoxFit.contain),
+      onTapDown: widget.isLocked ? null : _handleTapDown,
+      onTapUp: widget.isLocked ? null : _handleTapUp,
+      onTapCancel: widget.isLocked ? null : _handleTapCancel,
+      onTap: widget.isLocked ? null : widget.onTap,
+      child: AnimatedBuilder(
+        animation: _tapController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Stack(
+              children: [
+                // Основная иконка
+                SizedBox(
+                  width: widget.nodeSize, // Используем переданный размер
+                  height: widget.nodeSize, // Используем переданный размер
+                  child: Image.asset(asset, fit: BoxFit.contain),
+                ),
+                // Эффект вдавливания (тень сверху)
+                if (_shadowAnimation.value > 0)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          center: Alignment.topCenter,
+                          radius: 1.2,
+                          colors: [
+                            Colors.black.withOpacity(0.3 * _shadowAnimation.value),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.5],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

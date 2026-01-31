@@ -32,6 +32,8 @@ class ShopScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     final ownedItems = backgrounds
         .where((bg) => state.ownedBackgrounds.contains(bg['id']))
@@ -40,57 +42,103 @@ class ShopScreen extends StatelessWidget {
         .where((bg) => !state.ownedBackgrounds.contains(bg['id']))
         .toList();
 
+    // Адаптивные размеры
+    final itemSpacing = screenWidth * 0.03; // 3% от ширины экрана
+    final itemSize = screenWidth * 0.2; // 20% от ширины экрана (для 4 колонок)
+    final paddingHorizontal = screenWidth * 0.04; // 4% от ширины экрана
+    final sectionSpacing = screenHeight * 0.02; // 2% от высоты экрана
+    final titleFontSize = screenWidth * 0.05; // 5% от ширины экрана
+    final coinFontSize = screenWidth * 0.04; // 4% от ширины экрана
+
     return Scaffold(
       backgroundColor: const Color(0xFF131F24), // 🔹 Статичный фон
-      appBar: AppBar(
-        backgroundColor: backgrounds.firstWhere(
-          (bg) => bg['id'] == state.selectedBackground,
-          orElse: () => {
-            'color': const Color(0xFF067D06),
-          }, // если вдруг нет совпадения
-        )['color'],
-        centerTitle: true,
-        title: Text(
-          'Магазин фонов',
-          style: TextStyle(
-            fontFamily: 'ClashRoyale',
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        elevation: 0,
-        actions: [
-          Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: Image.asset('assets/images/coin.png', fit: BoxFit.cover),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Адаптивный AppBar
+            Container(
+              height: 56,
+              color: const Color(0xFF131F24),
+              padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'МАГАЗИН',
+                        style: TextStyle(
+                          fontFamily: 'ClashRoyale',
+                          fontSize: titleFontSize.clamp(16, 22),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: screenWidth * 0.05,
+                        height: screenWidth * 0.05,
+                        child: Image.asset('assets/images/coin.png', fit: BoxFit.contain),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${state.coins}',
+                        style: TextStyle(
+                          fontFamily: 'ClashRoyale',
+                          fontSize: coinFontSize.clamp(14, 18),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Text(
-                '${state.coins}',
-                style: TextStyle(
-                  fontFamily: 'ClashRoyale',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            ),
+            
+            // Разделительная линия
+            Container(
+              color: const Color(0xFF2A3A42),
+              height: 1.0,
+            ),
+            
+            // Контент с прокруткой
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.all(paddingHorizontal),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildSection(
+                      context, 
+                      'Ваши фоны', 
+                      ownedItems, 
+                      true, 
+                      screenWidth, 
+                      itemSize, 
+                      itemSpacing,
+                      titleFontSize,
+                    ),
+                    SizedBox(height: sectionSpacing * 2),
+                    _buildSection(
+                      context, 
+                      'Недоступные', 
+                      lockedItems, 
+                      false, 
+                      screenWidth, 
+                      itemSize, 
+                      itemSpacing,
+                      titleFontSize,
+                    ),
+                    SizedBox(height: screenHeight * 0.05), // Отступ снизу
+                  ],
                 ),
               ),
-              const SizedBox(width: 16),
-            ],
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildSection(context, 'Ваши фоны', ownedItems, true),
-            const SizedBox(height: 20),
-            _buildSection(context, 'Недоступные', lockedItems, false),
+            ),
           ],
         ),
       ),
@@ -102,228 +150,261 @@ class ShopScreen extends StatelessWidget {
     String title,
     List<Map<String, dynamic>> items,
     bool ownedSection,
+    double screenWidth,
+    double itemSize,
+    double itemSpacing,
+    double titleFontSize,
   ) {
     final state = context.read<GameState>();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontFamily: 'ClashRoyale',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+          padding: EdgeInsets.symmetric(vertical: itemSpacing),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'ClashRoyale',
+              fontSize: titleFontSize.clamp(16, 20),
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
         ),
-        GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.65, // Уменьшил для компактности
-          ),
-          itemBuilder: (context, index) {
-            final bg = items[index];
-            final bool isSelected = state.selectedBackground == bg['id'];
-            final bool isOwned = state.ownedBackgrounds.contains(bg['id']);
-            final double progress =
-                (state.coins / (bg['price'] == 0 ? 1 : bg['price']))
-                    .clamp(0, 1)
-                    .toDouble();
-
-            return GestureDetector(
-              onTap: () {
-                if (isOwned) {
-                  state.selectBackground(bg['id']);
-                  currentBackground.value = bg['id'];
-                } else {
-                  final success = state.buyBackground(bg['id'], bg['price']);
-                  if (success) {
-                    currentBackground.value = bg['id'];
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Фон "${_getBackgroundName(bg['id'])}" успешно куплен!',
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Недостаточно монет 💰',
-                          style: TextStyle(
-                            fontFamily: 'ClashRoyale',
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? Colors.amber : const Color(0xFF37464F),
-                    width: isSelected ? 2.5 : 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+        
+        if (items.isEmpty)
+          Container(
+            height: itemSize * 1.5,
+            alignment: Alignment.center,
+            child: Text(
+              ownedSection ? 'Нет доступных фонов' : 'Все фоны доступны!',
+              style: TextStyle(
+                fontFamily: 'ClashRoyale',
+                fontSize: screenWidth * 0.04,
+                color: Colors.white70,
+              ),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Автоматический расчет количества колонок в зависимости от ширины экрана
+              final itemWidth = itemSize;
+              final availableWidth = constraints.maxWidth;
+              final crossAxisCount = (availableWidth / (itemWidth + itemSpacing)).floor();
+              final actualCount = crossAxisCount.clamp(3, 5); // Минимум 3, максимум 5 колонок
+              final actualItemSize = (availableWidth - (itemSpacing * (actualCount - 1))) / actualCount;
+              
+              return GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                itemCount: items.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: actualCount,
+                  crossAxisSpacing: itemSpacing,
+                  mainAxisSpacing: itemSpacing,
+                  childAspectRatio: 0.7, // Оптимальное соотношение для карточек
                 ),
-                child: Column(
-                  children: [
-                    // 🔹 Квадратная верхняя часть (превью фона)
-                    Container(
-                      height: 85, // Фиксированная высота для квадрата
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: bg['color'] != null ? bg['color'] : null,
-                        gradient: bg['color'] == null
-                            ? _getGradient(bg['id'])
-                            : null,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          topRight: Radius.circular(10),
-                        ),
-                      ),
-                      child: !isOwned
-                          ? Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  topRight: Radius.circular(10),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.lock,
-                                color: Colors.white70,
-                                size: 24,
-                              ),
-                            )
-                          : isSelected
-                          ? Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  topRight: Radius.circular(10),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.check_circle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            )
-                          : null,
-                    ),
+                itemBuilder: (context, index) {
+                  final bg = items[index];
+                  final bool isSelected = state.selectedBackground == bg['id'];
+                  final bool isOwned = state.ownedBackgrounds.contains(bg['id']);
+                  final double progress =
+                      (state.coins / (bg['price'] == 0 ? 1 : bg['price']))
+                          .clamp(0, 1)
+                          .toDouble();
 
-                    // 🔹 Нижняя часть с информацией
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (isOwned)
-                              Text(
-                                isSelected ? 'ВЫБРАН' : 'ДОСТУПЕН',
+                  return GestureDetector(
+                    onTap: () {
+                      if (isOwned) {
+                        state.selectBackground(bg['id']);
+                        currentBackground.value = bg['id'];
+                      } else {
+                        final success = state.buyBackground(bg['id'], bg['price']);
+                        if (success) {
+                          currentBackground.value = bg['id'];
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Фон "${_getBackgroundName(bg['id'])}" успешно куплен!',
                                 style: TextStyle(
                                   fontFamily: 'ClashRoyale',
-                                  fontSize: 11,
-                                  color: isSelected
-                                      ? Colors.amber
-                                      : Colors.white70,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: screenWidth * 0.035,
+                                  color: Colors.white,
                                 ),
-                                textAlign: TextAlign.center,
-                              )
-                            else
-                              Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '${bg['price']}',
-                                        style: TextStyle(
-                                          fontFamily: 'ClashRoyale',
-                                          fontSize: 12,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Недостаточно монет 💰',
+                                style: TextStyle(
+                                  fontFamily: 'ClashRoyale',
+                                  fontSize: screenWidth * 0.035,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? Colors.amber : const Color(0xFF37464F),
+                          width: isSelected ? 2.5 : 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // 🔹 Квадратная верхняя часть (превью фона)
+                          Container(
+                            height: actualItemSize * 0.7, // Адаптивная высота
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: bg['color'] != null ? bg['color'] : null,
+                              gradient: bg['color'] == null
+                                  ? _getGradient(bg['id'])
+                                  : null,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(10),
+                                topRight: Radius.circular(10),
+                              ),
+                            ),
+                            child: !isOwned
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(10),
+                                        topRight: Radius.circular(10),
                                       ),
-                                      const SizedBox(width: 2),
-                                      SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: Image.asset(
-                                          'assets/images/coin.png',
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      backgroundColor: const Color(0xFF37464F),
-                                      color: const Color(0xFF58A700),
-                                      minHeight: 6,
                                     ),
-                                  ),
+                                    child: Icon(
+                                      Icons.lock,
+                                      color: Colors.white70,
+                                      size: screenWidth * 0.06, // Адаптивный размер иконки
+                                    ),
+                                  )
+                                : isSelected
+                                ? Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(10),
+                                        topRight: Radius.circular(10),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      color: Colors.white,
+                                      size: screenWidth * 0.06, // Адаптивный размер иконки
+                                    ),
+                                  )
+                                : null,
+                          ),
+
+                          // 🔹 Нижняя часть с информацией
+                          Expanded(
+                            child: Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                vertical: actualItemSize * 0.05,
+                                horizontal: actualItemSize * 0.04,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.4),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (isOwned)
+                                    Text(
+                                      isSelected ? 'ВЫБРАН' : 'ДОСТУПЕН',
+                                      style: TextStyle(
+                                        fontFamily: 'ClashRoyale',
+                                        fontSize: screenWidth * 0.025,
+                                        color: isSelected
+                                            ? Colors.amber
+                                            : Colors.white70,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  else
+                                    Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '${bg['price']}',
+                                              style: TextStyle(
+                                                fontFamily: 'ClashRoyale',
+                                                fontSize: screenWidth * 0.03,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            SizedBox(width: screenWidth * 0.005),
+                                            SizedBox(
+                                              width: screenWidth * 0.035,
+                                              height: screenWidth * 0.035,
+                                              child: Image.asset(
+                                                'assets/images/coin.png',
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: actualItemSize * 0.02),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: progress,
+                                            backgroundColor: const Color(0xFF37464F),
+                                            color: const Color(0xFF58A700),
+                                            minHeight: screenWidth * 0.015,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+                  );
+                },
+              );
+            },
+          ),
       ],
     );
   }

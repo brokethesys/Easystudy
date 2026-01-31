@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
-import '../widgets/settings_panel.dart';
+import '../screens/settings_screen.dart'; // Импорт нового экрана настроек
 
 class TopHUD extends StatelessWidget {
   const TopHUD({super.key});
@@ -58,7 +58,7 @@ class TopHUD extends StatelessWidget {
                 SizedBox(
                   width: widgetHeight,
                   height: widgetHeight,
-                  child: Image.asset('assets/images/icon_math.png'),
+                  child: Image.asset('assets/images/software-application.png'),
                 ),
 
                 // Монеты
@@ -82,16 +82,19 @@ class TopHUD extends StatelessWidget {
                   ],
                 ),
 
-                // Настройки
+                // Настройки (открытие отдельного экрана)
                 SizedBox(
                   width: widgetHeight,
                   height: widgetHeight,
                   child: GestureDetector(
-                    onTap: () => SettingsPanel.open(context),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    ),
                     child: Icon(
                       Icons.settings,
                       color: Colors.orangeAccent,
-                      size: widgetHeight * 1,
+                      size: widgetHeight,
                     ),
                   ),
                 ),

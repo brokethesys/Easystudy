@@ -406,22 +406,13 @@ class GameState extends ChangeNotifier {
     final ticket = ticketsProgress[key];
 
     if (ticket == null) return false;
-
-    // Билет считается завершённым, если все вопросы пройдены
-    if (ticket.answeredQuestions.length < totalQuestions) {
-      return false;
-    }
+    if (ticket.answeredQuestions.length < totalQuestions) return false;
 
     ticket.isCompleted = true;
 
-    // === Проверка уровня ===
-    final level = ((ticketNumber - 1) ~/ 5) + 1;
-    final allCompleted = areAllTicketsCompletedInLevel(level);
-
-    if (allCompleted) {
-      completeLevel(level);
-      unlockLevel(level + 1);
-    }
+    // ⬇️ ВАЖНО
+    completeLevel(ticketNumber);
+    unlockLevel(ticketNumber + 1);
 
     save();
     notifyListeners();

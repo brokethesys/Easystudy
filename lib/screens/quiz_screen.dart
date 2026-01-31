@@ -123,10 +123,15 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final subject = gameState.currentSubject;
 
     // Загружаем текущий прогресс перед началом
-    final ticketProgress = gameState.getTicketProgress(subject, widget.ticketId);
-    final currentCorrect = ticketProgress?.answeredQuestions.values
-        .where((v) => v == true)
-        .length ?? 0;
+    final ticketProgress = gameState.getTicketProgress(
+      subject,
+      widget.ticketId,
+    );
+    final currentCorrect =
+        ticketProgress?.answeredQuestions.values
+            .where((v) => v == true)
+            .length ??
+        0;
     final currentLastIndex = ticketProgress?.lastAnsweredIndex ?? 0;
 
     final result = await Navigator.push(
@@ -168,45 +173,21 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         // === РАЗБЛОКИРОВКА СЛЕДУЮЩЕГО БИЛЕТА И УРОВНЯ ===
         // Проверяем, полностью ли завершен текущий билет
         final bool isTicketCompleted = correctAnswers == totalSubquestions;
-        
+
         if (isTicketCompleted) {
-      
-          
-          // Разблокируем следующий билет
-          final nextTicketId = widget.ticketId + 1;
-          
-          
-          // Проверяем, все ли билеты текущего уровня завершены
-          final currentLevel = gameState.currentLevel;
-          final allTickets = gameState.getTicketsForLevel(currentLevel);
-          final currentTicketIndex = allTickets.indexOf(widget.ticketId);
-          
-          if (currentTicketIndex == allTickets.length - 1) {
-       
-            final allTicketsCompleted = gameState.areAllTicketsCompletedInLevel(currentLevel);
-            
-            // Если все билеты уровня пройдены, разблокируем следующий уровень
-            if (allTicketsCompleted) {
-              final nextLevel = currentLevel + 1;
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Поздравляем! Уровень $nextLevel открыт 🎉'),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          } else {
-            // Разблокируем следующий билет в текущем уровне
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Билет ${nextTicketId} теперь доступен!'),
-                backgroundColor: Colors.blue,
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          }
+          gameState.finishTicket(
+            subject: subject,
+            ticketNumber: widget.ticketId,
+            totalQuestions: totalSubquestions,
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Уровень ${widget.ticketId + 1} открыт! 🎉'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       });
     }
@@ -257,8 +238,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   Widget _buildActionButton() {
     final gameState = context.read<GameState>();
-    final isUnlocked = gameState.isTicketUnlocked(widget.ticketId);
-    
+    final isUnlocked = widget.ticketId <= gameState.currentLevel;
+
+
     return GestureDetector(
       onTapDown: (_) => _buttonController.reverse(),
       onTapUp: (_) => _buttonController.forward(),
@@ -274,8 +256,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           ),
           alignment: Alignment.center,
           child: Text(
-            !isUnlocked ? 'ЗАБЛОКИРОВАНО' : 
-            (startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ'),
+            !isUnlocked
+                ? 'ЗАБЛОКИРОВАНО'
+                : (startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ'),
             style: TextStyle(
               fontFamily: 'ClashRoyale',
               fontSize: 16,
@@ -292,7 +275,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theoryText = ticketData?['theory'] ?? '';
     final gameState = context.read<GameState>();
-    final isUnlocked = gameState.isTicketUnlocked(widget.ticketId);
+    final isUnlocked = widget.ticketId <= gameState.currentLevel;
+
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -381,36 +365,53 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                           final sub = ticketData!['subquestions'][index];
                           final gameState = context.read<GameState>();
                           final subject = gameState.currentSubject;
-                          final ticketProgress = gameState.getTicketProgress(subject, widget.ticketId);
-                          
+                          final ticketProgress = gameState.getTicketProgress(
+                            subject,
+                            widget.ticketId,
+                          );
+
                           // Проверяем, отвечен ли этот вопрос
-                          final isAnswered = ticketProgress?.answeredQuestions.containsKey(index) ?? false;
-                          final isCorrect = ticketProgress?.answeredQuestions[index] ?? false;
-                          
+                          final isAnswered =
+                              ticketProgress?.answeredQuestions.containsKey(
+                                index,
+                              ) ??
+                              false;
+                          final isCorrect =
+                              ticketProgress?.answeredQuestions[index] ?? false;
+
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isAnswered 
-                                ? (isCorrect 
-                                    ? const Color(0xFF2A3A45).withOpacity(0.7)
-                                    : const Color(0xFF5A2A2A).withOpacity(0.7))
-                                : const Color(0xFF1F2C36),
+                              color: isAnswered
+                                  ? (isCorrect
+                                        ? const Color(
+                                            0xFF2A3A45,
+                                          ).withOpacity(0.7)
+                                        : const Color(
+                                            0xFF5A2A2A,
+                                          ).withOpacity(0.7))
+                                  : const Color(0xFF1F2C36),
                               borderRadius: BorderRadius.circular(8),
-                              border: isAnswered 
-                                ? Border.all(
-                                    color: isCorrect 
-                                      ? const Color(0xFF58A700) 
-                                      : const Color(0xFFD32F2F), 
-                                    width: 1)
-                                : null,
+                              border: isAnswered
+                                  ? Border.all(
+                                      color: isCorrect
+                                          ? const Color(0xFF58A700)
+                                          : const Color(0xFFD32F2F),
+                                      width: 1,
+                                    )
+                                  : null,
                             ),
                             child: Row(
                               children: [
                                 if (isAnswered)
                                   Icon(
-                                    isCorrect ? Icons.check_circle : Icons.cancel,
-                                    color: isCorrect ? const Color(0xFF58A700) : const Color(0xFFD32F2F),
+                                    isCorrect
+                                        ? Icons.check_circle
+                                        : Icons.cancel,
+                                    color: isCorrect
+                                        ? const Color(0xFF58A700)
+                                        : const Color(0xFFD32F2F),
                                     size: 16,
                                   ),
                                 if (isAnswered) const SizedBox(width: 8),
@@ -420,9 +421,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                     style: TextStyle(
                                       fontFamily: 'ClashRoyale',
                                       fontSize: 14,
-                                      color: isAnswered 
-                                        ? Colors.white 
-                                        : Colors.white70,
+                                      color: isAnswered
+                                          ? Colors.white
+                                          : Colors.white70,
                                     ),
                                   ),
                                 ),
