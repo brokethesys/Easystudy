@@ -27,14 +27,11 @@ class _SubquestionScreenState extends State<SubquestionScreen>
   final List<dynamic> unsolvedQuestions = [];
 
   int currentIndex = 0;
-  bool showExplanation = false;
-  bool answeredCorrectly = false;
-  bool isFirstWrongAttempt = false;
-  bool isSecondWrongAttempt = false;
-
   Set<int> selectedOptions = {};
   final Map<dynamic, int> wrongAttempts = {};
   int correctAnswers = 0;
+
+  bool showExplanation = false;
 
   late AnimationController progressController;
   late Animation<double> progressAnimation;
@@ -50,7 +47,8 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     super.initState();
 
     questionsQueue = List.from(widget.subquestions);
-    currentIndex = widget.startIndex.clamp(0, questionsQueue.length - 1);
+    currentIndex = widget.startIndex.clamp(
+        0, questionsQueue.isEmpty ? 0 : questionsQueue.length - 1);
 
     _loadCurrentProgress();
 
@@ -59,9 +57,10 @@ class _SubquestionScreenState extends State<SubquestionScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    progressAnimation =
-        Tween<double>(begin: 0, end: correctAnswers / questionsQueue.length)
-            .animate(
+    progressAnimation = Tween<double>(
+      begin: 0,
+      end: questionsQueue.isEmpty ? 0 : correctAnswers / questionsQueue.length,
+    ).animate(
       CurvedAnimation(parent: progressController, curve: Curves.easeOut),
     );
 
@@ -79,6 +78,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
   }
 
   void _loadCurrentProgress() {
+    if (questionsQueue.isEmpty) return;
     final gameState = context.read<GameState>();
     final ticketProgress = gameState.getTicketProgress(
       widget.subject,
@@ -95,7 +95,8 @@ class _SubquestionScreenState extends State<SubquestionScreen>
           (a, b) => a > b ? a : b,
         );
         if (maxAnsweredIndex > widget.startIndex) {
-          currentIndex = maxAnsweredIndex;
+          currentIndex = maxAnsweredIndex.clamp(
+              0, questionsQueue.length - 1);
         }
       }
     }
@@ -106,6 +107,16 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     progressController.dispose();
     explanationController.dispose();
     super.dispose();
+  }
+
+  void _updateProgress() {
+    progressAnimation = Tween<double>(
+      begin: progressAnimation.value,
+      end: questionsQueue.isEmpty ? 0 : correctAnswers / questionsQueue.length,
+    ).animate(
+      CurvedAnimation(parent: progressController, curve: Curves.easeOut),
+    );
+    progressController.forward(from: 0);
   }
 
   void _toggleOption(int index, bool isMultiple) {
@@ -121,13 +132,14 @@ class _SubquestionScreenState extends State<SubquestionScreen>
   }
 
   void _confirmAnswer() {
+    if (questionsQueue.isEmpty) return;
+
     final current = questionsQueue[currentIndex];
     final correct = current['correct_answer'];
     final type = current['type'];
     final questionNumber = currentIndex;
 
     bool isCorrect = false;
-
     if (type == 'singleanswer') {
       isCorrect =
           selectedOptions.length == 1 && selectedOptions.first == correct;
@@ -146,100 +158,94 @@ class _SubquestionScreenState extends State<SubquestionScreen>
       isCorrect: isCorrect,
     );
 
+    // Обновляем количество правильных ответов и попытки
+    final id = current['subid'];
+    int attempt = wrongAttempts[id] ?? 0;
+    if (isCorrect) {
+      correctAnswers++;
+      attempt = 3; // успешный ответ
+      if (unsolvedQuestions.contains(current)) unsolvedQuestions.remove(current);
+    } else {
+      attempt += 1;
+      if (attempt == 2 && !unsolvedQuestions.contains(current)) {
+        unsolvedQuestions.add(current);
+      }
+    }
+    wrongAttempts[id] = attempt;
+
     setState(() {
-      answeredCorrectly = isCorrect;
-
-      if (isCorrect) {
-        HapticFeedback.lightImpact();
-        correctAnswers++;
-        isFirstWrongAttempt = false;
-        isSecondWrongAttempt = false;
-        wrongAttempts.remove(current['subid']);
-        showExplanation = true;
-      } else {
-        HapticFeedback.mediumImpact();
-        final id = current['subid'];
-        final attempts = (wrongAttempts[id] ?? 0) + 1;
-        wrongAttempts[id] = attempts;
-
-        if (attempts == 1) {
-          isFirstWrongAttempt = true;
-          isSecondWrongAttempt = false;
-          showExplanation = true; // Только заголовок
-        } else if (attempts == 2) {
-          HapticFeedback.heavyImpact();
-          isFirstWrongAttempt = false;
-          isSecondWrongAttempt = true;
-          showExplanation = true;
-          if (!unsolvedQuestions.contains(current)) {
-            unsolvedQuestions.add(current);
-          }
-        }
-      }
-
-      // Обновляем прогресс только на правильные ответы
-      progressAnimation = Tween<double>(
-        begin: progressAnimation.value,
-        end: correctAnswers / questionsQueue.length,
-      ).animate(
-        CurvedAnimation(parent: progressController, curve: Curves.easeOut),
-      );
-
-      progressController.forward(from: 0);
-
-      // Вибрация при заполнении прогресс-бара
+      showExplanation = attempt > 0 && attempt < 3 ? true : isCorrect;
+      selectedOptions.clear();
+      _updateProgress();
+      if (showExplanation) explanationController.forward(from: 0);
       HapticFeedback.selectionClick();
-
-      if (showExplanation) {
-        explanationController.forward(from: 0);
-      }
     });
   }
 
   void _nextQuestion() {
-    HapticFeedback.selectionClick();
-
     if (currentIndex >= questionsQueue.length - 1) {
       Navigator.pop(context, {
         'answered': correctAnswers,
-        'lastIndex': questionsQueue.length,
+        'lastIndex': currentIndex,
         'unsolvedQuestions': unsolvedQuestions,
       });
       return;
     }
 
     setState(() {
+      currentIndex++;
       selectedOptions.clear();
       showExplanation = false;
-      answeredCorrectly = false;
-      isFirstWrongAttempt = false;
-      isSecondWrongAttempt = false;
       explanationController.reset();
-      currentIndex++;
     });
   }
 
   void _retryQuestion() {
-    HapticFeedback.selectionClick();
     setState(() {
       selectedOptions.clear();
       showExplanation = false;
-      answeredCorrectly = false;
-      isFirstWrongAttempt = false;
       explanationController.reset();
     });
   }
 
+  Map<String, dynamic> _getActionButtonConfig(bool isAlreadyAnswered,
+      bool wasPreviousCorrect, int attempt) {
+    Color explanationColor = attempt == 1
+        ? Colors.yellow.shade700
+        : attempt == 2
+            ? const Color(0xFFEE5654)
+            : const Color(0xFF92D333);
+
+    String text = 'ПРОВЕРИТЬ';
+    Color color = const Color(0xFF92D331);
+    Color textColor = const Color(0xFF101E27);
+
+    if (isAlreadyAnswered && wasPreviousCorrect && !showExplanation) {
+      text = 'ПРОДОЛЖИТЬ';
+      color = const Color(0xFF92D333);
+    } else if (showExplanation) {
+      if (attempt == 3 || attempt == 2) {
+        text = 'ПРОДОЛЖИТЬ';
+        color = explanationColor;
+      } else if (attempt == 1) {
+        text = 'ПОПРОБОВАТЬ ЕЩЕ РАЗ';
+        color = explanationColor;
+      }
+    }
+
+    if (attempt == 1) textColor = Colors.black;
+
+    return {'text': text, 'color': color, 'textColor': textColor};
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (currentIndex >= questionsQueue.length) {
+    if (questionsQueue.isEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF131F24),
         body: const Center(
-          child: Text(
-            "Все вопросы пройдены",
-            style: TextStyle(color: Colors.white),
-          ),
+          child: Text('Нет вопросов для этого билета',
+              style: TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -258,46 +264,25 @@ class _SubquestionScreenState extends State<SubquestionScreen>
         ticketProgress?.answeredQuestions.containsKey(currentIndex) ?? false;
     final wasPreviousCorrect =
         ticketProgress?.answeredQuestions[currentIndex] ?? false;
+    final attempt = wrongAttempts[current['subid']] ??
+        (isAlreadyAnswered && wasPreviousCorrect ? 3 : 0);
 
-    final explanationColor = answeredCorrectly
-        ? const Color(0xFF92D333)
-        : isSecondWrongAttempt
+    final explanationColor = attempt == 1
+        ? Colors.yellow.shade700
+        : attempt == 2
             ? const Color(0xFFEE5654)
-            : Colors.yellow.shade700;
+            : const Color(0xFF92D333);
 
-    final showExplanationText = answeredCorrectly || isSecondWrongAttempt;
+    final showExplanationText = attempt == 2 || attempt == 3;
     String explanationTitle = '';
-    if (answeredCorrectly) {
-      explanationTitle = 'Объяснение:';
-    } else if (isSecondWrongAttempt) {
-      explanationTitle = 'Объяснение:';
-    } else if (isFirstWrongAttempt) {
+    if (attempt == 1) {
       explanationTitle = 'Упс, кажется ты что-то упустил';
+    } else if (attempt == 2 || attempt == 3) {
+      explanationTitle = 'Объяснение:';
     }
 
-    final buttonText = (() {
-      if (isAlreadyAnswered && wasPreviousCorrect && !showExplanation)
-        return 'ПРОДОЛЖИТЬ';
-      if (showExplanation) {
-        if (answeredCorrectly || isSecondWrongAttempt) return 'ПРОДОЛЖИТЬ';
-        if (isFirstWrongAttempt) return 'ПОПРОБОВАТЬ ЕЩЕ РАЗ';
-      }
-      return 'ПРОВЕРИТЬ';
-    })();
-
-    final buttonColor = (() {
-      if (isAlreadyAnswered && wasPreviousCorrect && !showExplanation)
-        return const Color(0xFF92D333);
-      if (showExplanation) {
-        if (answeredCorrectly || isSecondWrongAttempt) return explanationColor;
-        if (isFirstWrongAttempt) return explanationColor;
-      }
-      return const Color(0xFF92D331);
-    })();
-
-    Color textColor = (showExplanation && isFirstWrongAttempt)
-        ? Colors.black
-        : const Color(0xFF101E27);
+    final btnConfig =
+        _getActionButtonConfig(isAlreadyAnswered, wasPreviousCorrect, attempt);
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),
@@ -379,7 +364,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                             ? Icons.check_box
                             : Icons.radio_button_checked;
                       } else if (showExplanation) {
-                        if (answeredCorrectly || isSecondWrongAttempt) {
+                        if (attempt == 2 || attempt == 3) {
                           if (isCorrectOption) {
                             color = const Color(0xFF92D333);
                             icon = isMultiple
@@ -392,7 +377,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                                 ? Icons.check_box
                                 : Icons.radio_button_checked;
                           }
-                        } else if (isFirstWrongAttempt) {
+                        } else if (attempt == 1) {
                           if (isSelected) {
                             color = Colors.yellow.shade700;
                             icon = isMultiple
@@ -408,7 +393,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                       return GestureDetector(
                         onTap: isDisabled
                             ? null
-                            : (showExplanation && !isFirstWrongAttempt)
+                            : (showExplanation && attempt != 1)
                                 ? null
                                 : () => _toggleOption(index, isMultiple),
                         child: Container(
@@ -455,11 +440,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                 child: Container(
                   constraints: BoxConstraints(maxHeight: maxExplanationHeight),
                   padding: EdgeInsets.fromLTRB(
-                    16,
-                    20,
-                    16,
-                    actionButtonHeight + actionButtonBottom + 16,
-                  ),
+                      16, 20, 16, actionButtonHeight + actionButtonBottom + 16),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(255, 32, 47, 54),
                     borderRadius: const BorderRadius.vertical(
@@ -497,8 +478,8 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                               height: 1.4,
                             ),
                           ),
-                        if (isSecondWrongAttempt) const SizedBox(height: 8),
-                        if (isSecondWrongAttempt)
+                        if (attempt == 2) const SizedBox(height: 8),
+                        if (attempt == 2)
                           Text(
                             'Этот вопрос сохранен в список нерешенных.',
                             style: TextStyle(
@@ -515,24 +496,24 @@ class _SubquestionScreenState extends State<SubquestionScreen>
               ),
             ),
 
-          // Кнопка действия с эффектом нажатия
+          // Кнопка действия
           Positioned(
             left: 16,
             right: 16,
             bottom: actionButtonBottom,
             child: _ActionButton(
-              text: buttonText,
-              color: buttonColor,
-              textColor: textColor,
+              text: btnConfig['text'],
+              color: btnConfig['color'],
+              textColor: btnConfig['textColor'],
               height: actionButtonHeight,
               onTap: () {
                 HapticFeedback.selectionClick();
                 if (isAlreadyAnswered && wasPreviousCorrect) {
                   _nextQuestion();
                 } else if (showExplanation) {
-                  if (answeredCorrectly || isSecondWrongAttempt) {
+                  if (attempt == 2 || attempt == 3) {
                     _nextQuestion();
-                  } else if (isFirstWrongAttempt) {
+                  } else if (attempt == 1) {
                     _retryQuestion();
                   }
                 } else {
@@ -548,7 +529,6 @@ class _SubquestionScreenState extends State<SubquestionScreen>
   }
 }
 
-// Виджет кнопки с эффектом нажатия
 class _ActionButton extends StatefulWidget {
   final String text;
   final Color color;
@@ -571,17 +551,9 @@ class _ActionButton extends StatefulWidget {
 class _ActionButtonState extends State<_ActionButton> {
   double _scale = 1.0;
 
-  void _onTapDown(TapDownDetails details) {
-    setState(() => _scale = 0.95);
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    setState(() => _scale = 1.0);
-  }
-
-  void _onTapCancel() {
-    setState(() => _scale = 1.0);
-  }
+  void _onTapDown(TapDownDetails details) => setState(() => _scale = 0.95);
+  void _onTapUp(TapUpDetails details) => setState(() => _scale = 1.0);
+  void _onTapCancel() => setState(() => _scale = 1.0);
 
   @override
   Widget build(BuildContext context) {

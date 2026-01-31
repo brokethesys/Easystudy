@@ -30,18 +30,32 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF001B33),
-        fontFamily: 'Roboto',
-        useMaterial3: true,
-      ),
-      initialRoute: showWelcomeScreen ? '/welcome' : '/home',
-      routes: {
-        '/welcome': (context) => const WelcomeScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/map': (context) => const MapScreen(),
+    return ValueListenableBuilder<String>(
+      valueListenable: currentBackground,
+      builder: (context, background, _) {
+        Color scaffoldColor = const Color(0xFF001B33);
+        if (background == 'white') {
+          scaffoldColor = Colors.white;
+        } else if (background == 'blue') {
+          scaffoldColor = const Color(0xFF001B33);
+        } else if (background == 'dark') {
+          scaffoldColor = const Color(0xFF131F24);
+        }
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            scaffoldBackgroundColor: scaffoldColor,
+            fontFamily: 'Roboto',
+            useMaterial3: true,
+          ),
+          initialRoute: showWelcomeScreen ? '/welcome' : '/home',
+          routes: {
+            '/welcome': (context) => const WelcomeScreen(),
+            '/home': (context) => const HomeScreen(),
+            '/map': (context) => const MapScreen(),
+          },
+        );
       },
     );
   }

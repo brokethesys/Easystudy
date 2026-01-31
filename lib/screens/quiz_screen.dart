@@ -68,10 +68,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     );
     final data = json.decode(response);
 
-    final ticket = (data['tickets'] as List).firstWhere(
-      (t) => t['id'] == widget.ticketId,
-      orElse: () => null,
-    );
+    final ticket = (data['tickets'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((t) => t['id'] == widget.ticketId, orElse: () => {});
+    if (ticket.isEmpty) return; // нет билета
 
     if (ticket == null) return;
 
@@ -149,8 +149,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     );
 
     if (result != null && result is Map<String, dynamic>) {
-      final int newCorrect = result['answered'] ?? currentCorrect;
-      final int lastIndex = result['lastIndex'] ?? currentLastIndex;
+      final int newCorrect = (result['answered'] ?? currentCorrect) as int;
+      final int lastIndex = (result['lastIndex'] ?? currentLastIndex) as int;
 
       setState(() {
         correctAnswers = newCorrect;
@@ -240,7 +240,6 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
 
-
     return GestureDetector(
       onTapDown: (_) => _buttonController.reverse(),
       onTapUp: (_) => _buttonController.forward(),
@@ -276,7 +275,6 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final theoryText = ticketData?['theory'] ?? '';
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
-
 
     return Scaffold(
       backgroundColor: const Color(0xFF131F24),

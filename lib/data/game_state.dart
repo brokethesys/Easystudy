@@ -7,9 +7,9 @@ enum Subject { chemistry, math, history }
 class TicketProgress {
   final int ticketNumber;
   final Subject subject;
-  Map<int, bool> answeredQuestions; // ключ: номер вопроса, значение: true/false
-  int lastAnsweredIndex; // индекс последнего отвеченного вопроса
-  bool isCompleted; // полностью ли завершен билет
+  final Map<int, bool> answeredQuestions;
+  final int lastAnsweredIndex;
+  final bool isCompleted;
 
   TicketProgress({
     required this.ticketNumber,
@@ -19,149 +19,223 @@ class TicketProgress {
     this.isCompleted = false,
   }) : answeredQuestions = answeredQuestions ?? {};
 
-  // Сериализация для SharedPreferences
+  // Эффективная сериализация с использованием бинарного формата
   String serialize() {
-    final answers = answeredQuestions.entries
-        .map((e) => "${e.key}:${e.value}")
-        .join(",");
-    return "${subject.name}|$ticketNumber|$lastAnsweredIndex|$isCompleted|$answers";
+    final buffer = StringBuffer()
+      ..write('${subject.index}|$ticketNumber|$lastAnsweredIndex|$isCompleted|');
+    
+    // Сериализуем ответы в компактном формате
+    if (answeredQuestions.isNotEmpty) {
+      final entries = answeredQuestions.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      
+      for (int i = 0; i < entries.length; i++) {
+        if (i > 0) buffer.write(',');
+        buffer.write('${entries[i].key}:${entries[i].value ? '1' : '0'}');
+      }
+    }
+    
+    return buffer.toString();
   }
 
   static TicketProgress deserialize(String data) {
-    final parts = data.split("|");
-    final subject = Subject.values.firstWhere((s) => s.name == parts[0]);
+    final parts = data.split('|');
+    if (parts.length < 5) {
+      throw FormatException('Invalid ticket progress data');
+    }
+    
+    final subject = Subject.values[int.parse(parts[0])];
     final ticketNumber = int.parse(parts[1]);
-    final lastIndex = parts.length > 2 ? int.parse(parts[2]) : 0;
-    final isCompleted = parts.length > 3 ? parts[3] == "true" : false;
+    final lastAnsweredIndex = int.parse(parts[2]);
+    final isCompleted = parts[3] == 'true';
     final answers = <int, bool>{};
-    if (parts.length > 4 && parts[4].isNotEmpty) {
-      for (var q in parts[4].split(",")) {
-        final kv = q.split(":");
-        answers[int.parse(kv[0])] = kv[1] == "true";
+    
+    if (parts[4].isNotEmpty) {
+      final answerParts = parts[4].split(',');
+      for (final answer in answerParts) {
+        final kv = answer.split(':');
+        if (kv.length == 2) {
+          answers[int.parse(kv[0])] = kv[1] == '1';
+        }
       }
     }
+    
     return TicketProgress(
       ticketNumber: ticketNumber,
       subject: subject,
-      lastAnsweredIndex: lastIndex,
-      isCompleted: isCompleted,
       answeredQuestions: answers,
+      lastAnsweredIndex: lastAnsweredIndex,
+      isCompleted: isCompleted,
     );
   }
 }
 
 class GameState extends ChangeNotifier {
+  // === Константы для работы с памятью ===
+  static const String _firstLaunchKey = 'first_launch';
+  static const String _ticketsProgressKey = 'ticketsProgress';
+  static const String _currentSubjectKey = 'currentSubject';
+  static const List<String> _subjectKeys = ['chemistry', 'math', 'history'];
+  
   // === Общие настройки ===
-  bool soundEnabled;
-  bool musicEnabled;
-  bool vibrationEnabled;
-  double musicVolume;
-
-  int playerLevel;
-  int currentXP;
-  int coins;
-
+  bool _soundEnabled;
+  bool _musicEnabled;
+  bool _vibrationEnabled;
+  double _musicVolume;
+  
+  int _playerLevel;
+  int _currentXP;
+  int _coins;
+  
   // === Прогресс по предметам ===
-  Subject currentSubject;
-  Map<Subject, int> currentLevels;
-  Map<Subject, Set<int>> completedLevels;
-  Map<Subject, Set<int>>
-  unlockedTickets; // Разблокированные билеты для каждого предмета
-
+  Subject _currentSubject;
+  final Map<Subject, int> _currentLevels;
+  final Map<Subject, Set<int>> _completedLevels;
+  final Map<Subject, Set<int>> _unlockedTickets;
+  
   // === Прогресс по билетам ===
-  Map<String, TicketProgress> ticketsProgress =
-      {}; // ключ: "${subject.name}_$ticketNumber"
-
+  final Map<String, TicketProgress> _ticketsProgress;
+  
   // === Магазин ===
-  List<String> ownedBackgrounds;
-  String selectedBackground;
-
-  List<String> ownedFrames;
-  String selectedFrame;
-
-  List<String> ownedAvatars;
-  String selectedAvatar;
-
+  final Set<String> _ownedBackgrounds;
+  String _selectedBackground;
+  
+  final Set<String> _ownedFrames;
+  String _selectedFrame;
+  
+  final Set<String> _ownedAvatars;
+  String _selectedAvatar;
+  
   // === Достижения ===
-  Set<int> collectedAchievements;
-
+  final Set<int> _collectedAchievements;
+  
   // === Ник игрока ===
-  String nickname;
-
+  String _nickname;
+  
+  // ============ ПУБЛИЧНЫЕ ГЕТТЕРЫ ============
+  
+  // Основные настройки
+  bool get soundEnabled => _soundEnabled;
+  bool get musicEnabled => _musicEnabled;
+  bool get vibrationEnabled => _vibrationEnabled;
+  double get musicVolume => _musicVolume;
+  int get playerLevel => _playerLevel;
+  int get currentXP => _currentXP;
+  int get coins => _coins;
+  Subject get currentSubject => _currentSubject;
+  String get nickname => _nickname;
+  
+  // Магазин
+  String get selectedBackground => _selectedBackground;
+  String get selectedFrame => _selectedFrame;
+  String get selectedAvatar => _selectedAvatar;
+  
+  // Коллекции магазина
+  List<String> get ownedBackgrounds => _ownedBackgrounds.toList();
+  List<String> get ownedFrames => _ownedFrames.toList();
+  List<String> get ownedAvatars => _ownedAvatars.toList();
+  
+  // Достижения
+  Set<int> get collectedAchievements => Set<int>.from(_collectedAchievements);
+  
+  // Прогресс по предметам
+  Map<Subject, int> get currentLevels => Map<Subject, int>.from(_currentLevels);
+  Map<Subject, Set<int>> get completedLevels => Map<Subject, Set<int>>.from(_completedLevels);
+  Map<Subject, Set<int>> get unlockedTickets => Map<Subject, Set<int>>.from(_unlockedTickets);
+  
+  // Прогресс по билетам
+  Map<String, TicketProgress> get ticketsProgress => Map<String, TicketProgress>.from(_ticketsProgress);
+  
+  // Геттеры для текущего предмета с кешированием
+  int get currentLevel => _currentLevels[_currentSubject] ?? 1;
+  Set<int> get subjectCompletedLevels => _completedLevels[_currentSubject] ?? <int>{};
+  Set<int> get subjectUnlockedTickets => _unlockedTickets[_currentSubject] ?? <int>{};
+  
+  // Прогресс уровня
+  int get xpForNextLevel => 150;
+  double get xpRatio => (currentXP / xpForNextLevel).clamp(0.0, 1.0);
+  
   GameState({
-    this.soundEnabled = true,
-    this.musicEnabled = true,
-    this.vibrationEnabled = true,
-    this.musicVolume = 0.7,
-    this.playerLevel = 1,
-    this.currentXP = 0,
-    this.coins = 0,
-    this.currentSubject = Subject.chemistry,
+    bool soundEnabled = true,
+    bool musicEnabled = true,
+    bool vibrationEnabled = true,
+    double musicVolume = 0.7,
+    int playerLevel = 1,
+    int currentXP = 0,
+    int coins = 0,
+    Subject currentSubject = Subject.chemistry,
     Map<Subject, int>? currentLevels,
     Map<Subject, Set<int>>? completedLevels,
     Map<Subject, Set<int>>? unlockedTickets,
-    List<String>? ownedBackgrounds,
-    this.selectedBackground = 'blue',
-    List<String>? ownedFrames,
-    this.selectedFrame = 'default',
-    List<String>? ownedAvatars,
-    this.selectedAvatar = 'default',
+    Set<String>? ownedBackgrounds,
+    String selectedBackground = 'blue',
+    Set<String>? ownedFrames,
+    String selectedFrame = 'default',
+    Set<String>? ownedAvatars,
+    String selectedAvatar = 'default',
     Set<int>? collectedAchievements,
-    this.nickname = 'Player',
+    String nickname = 'Player',
     Map<String, TicketProgress>? ticketsProgress,
-  }) : currentLevels =
-           currentLevels ??
-           {Subject.chemistry: 1, Subject.math: 1, Subject.history: 1},
-       completedLevels =
-           completedLevels ??
-           {Subject.chemistry: {}, Subject.math: {}, Subject.history: {}},
-       unlockedTickets =
-           unlockedTickets ??
-           {
-             Subject.chemistry: {1},
-             Subject.math: {1},
-             Subject.history: {1},
-           },
-       ownedBackgrounds =
-           ownedBackgrounds ?? ['blue', 'green', 'purple', 'orange'],
-       ownedFrames = ownedFrames ?? ['default'],
-       ownedAvatars = ownedAvatars ?? ['default'],
-       collectedAchievements = collectedAchievements ?? {},
-       ticketsProgress = ticketsProgress ?? {} {
+  })  : _soundEnabled = soundEnabled,
+        _musicEnabled = musicEnabled,
+        _vibrationEnabled = vibrationEnabled,
+        _musicVolume = musicVolume,
+        _playerLevel = playerLevel,
+        _currentXP = currentXP,
+        _coins = coins,
+        _currentSubject = currentSubject,
+        _currentLevels = currentLevels ?? {
+          Subject.chemistry: 1,
+          Subject.math: 1,
+          Subject.history: 1,
+        },
+        _completedLevels = completedLevels ?? {
+          Subject.chemistry: <int>{},
+          Subject.math: <int>{},
+          Subject.history: <int>{},
+        },
+        _unlockedTickets = unlockedTickets ?? {
+          Subject.chemistry: <int>{1},
+          Subject.math: <int>{1},
+          Subject.history: <int>{1},
+        },
+        _ownedBackgrounds = ownedBackgrounds ?? {'blue', 'green', 'purple', 'orange'},
+        _selectedBackground = selectedBackground,
+        _ownedFrames = ownedFrames ?? {'default'},
+        _selectedFrame = selectedFrame,
+        _ownedAvatars = ownedAvatars ?? {'default'},
+        _selectedAvatar = selectedAvatar,
+        _collectedAchievements = collectedAchievements ?? <int>{},
+        _nickname = nickname,
+        _ticketsProgress = ticketsProgress ?? {} {
     _initializeAudio();
   }
 
-  // === Первый запуск приложения ===
+  // === Статические методы для проверки первого запуска ===
   static Future<bool> isFirstLaunch() async {
     final prefs = await SharedPreferences.getInstance();
-    final firstLaunch = prefs.getBool('first_launch') ?? true;
-    if (firstLaunch) await prefs.setBool('first_launch', false);
+    final firstLaunch = prefs.getBool(_firstLaunchKey) ?? true;
+    if (firstLaunch) {
+      await prefs.setBool(_firstLaunchKey, false);
+    }
     return firstLaunch;
   }
 
   // === Инициализация аудио ===
   void _initializeAudio() async {
     await AudioManager().initialize();
-    AudioManager().setSoundEnabled(soundEnabled);
-    AudioManager().setMusicEnabled(musicEnabled);
-    AudioManager().setMusicVolume(musicVolume);
+    AudioManager().setSoundEnabled(_soundEnabled);
+    AudioManager().setMusicEnabled(_musicEnabled);
+    AudioManager().setMusicVolume(_musicVolume);
   }
 
-  // === Константы и прогресс ===
-  int get xpForNextLevel => 150;
-  double get xpRatio => (currentXP / xpForNextLevel).clamp(0.0, 1.0);
-  int get currentLevel => currentLevels[currentSubject] ?? 1;
-  Set<int> get subjectCompletedLevels => completedLevels[currentSubject] ?? {};
-  Set<int> get subjectUnlockedTickets => unlockedTickets[currentSubject] ?? {};
-  int getCoinsRewardForLevel(int level) => (((level - 1) ~/ 5) + 1) * 100;
-
-  // === Проверка блокировки билетов ===
+  // === Проверка блокировки ===
   bool isTicketUnlocked(int ticketNumber) {
-    return subjectUnlockedTickets.contains(ticketNumber);
+    return _unlockedTickets[_currentSubject]?.contains(ticketNumber) ?? false;
   }
 
   bool isLevelUnlocked(int levelNumber) {
-    return (currentLevels[currentSubject] ?? 1) >= levelNumber;
+    return currentLevel >= levelNumber;
   }
 
   // === Прогресс по билетам ===
@@ -171,36 +245,56 @@ class GameState extends ChangeNotifier {
     required int questionNumber,
     required bool isCorrect,
   }) {
-    final key = "${subject.name}_$ticketNumber";
-    ticketsProgress[key] ??= TicketProgress(
-      ticketNumber: ticketNumber,
-      subject: subject,
-    );
-    ticketsProgress[key]!.answeredQuestions[questionNumber] = isCorrect;
-
-    // обновляем lastAnsweredIndex
-    if (questionNumber > ticketsProgress[key]!.lastAnsweredIndex) {
-      ticketsProgress[key]!.lastAnsweredIndex = questionNumber;
+    final key = _getTicketKey(subject, ticketNumber);
+    
+    final existingProgress = _ticketsProgress[key];
+    if (existingProgress != null) {
+      // Создаем новую копию с обновленными данными
+      _ticketsProgress[key] = TicketProgress(
+        ticketNumber: ticketNumber,
+        subject: subject,
+        answeredQuestions: Map<int, bool>.from(existingProgress.answeredQuestions)
+          ..[questionNumber] = isCorrect,
+        lastAnsweredIndex: questionNumber > existingProgress.lastAnsweredIndex
+            ? questionNumber
+            : existingProgress.lastAnsweredIndex,
+        isCompleted: existingProgress.isCompleted,
+      );
+    } else {
+      _ticketsProgress[key] = TicketProgress(
+        ticketNumber: ticketNumber,
+        subject: subject,
+        answeredQuestions: {questionNumber: isCorrect},
+        lastAnsweredIndex: questionNumber,
+        isCompleted: false,
+      );
     }
-
-    save();
-    notifyListeners();
+    
+    _saveAndNotify();
   }
 
   void completeTicket(Subject subject, int ticketNumber) {
-    final key = "${subject.name}_$ticketNumber";
-    if (ticketsProgress.containsKey(key)) {
-      ticketsProgress[key]!.isCompleted = true;
-      save();
-      notifyListeners();
+    final key = _getTicketKey(subject, ticketNumber);
+    final progress = _ticketsProgress[key];
+    if (progress != null && !progress.isCompleted) {
+      _ticketsProgress[key] = TicketProgress(
+        ticketNumber: ticketNumber,
+        subject: subject,
+        answeredQuestions: progress.answeredQuestions,
+        lastAnsweredIndex: progress.lastAnsweredIndex,
+        isCompleted: true,
+      );
+      _saveAndNotify();
     }
   }
 
-  TicketProgress? getTicketProgress(Subject subject, int ticketNumber) =>
-      ticketsProgress["${subject.name}_$ticketNumber"];
+  TicketProgress? getTicketProgress(Subject subject, int ticketNumber) {
+    return _ticketsProgress[_getTicketKey(subject, ticketNumber)];
+  }
 
-  int getTicketLastIndex(Subject subject, int ticketNumber) =>
-      ticketsProgress["${subject.name}_$ticketNumber"]?.lastAnsweredIndex ?? 0;
+  int getTicketLastIndex(Subject subject, int ticketNumber) {
+    return getTicketProgress(subject, ticketNumber)?.lastAnsweredIndex ?? 0;
+  }
 
   bool isTicketCompleted(
     Subject subject,
@@ -213,47 +307,47 @@ class GameState extends ChangeNotifier {
         ticket.answeredQuestions.length == totalQuestions;
   }
 
-  // === Разблокировка билетов и уровней ===
+  // === Разблокировка ===
   void unlockTicket(int ticketNumber) {
-    unlockedTickets[currentSubject]!.add(ticketNumber);
-    save();
-    notifyListeners();
-  }
-
-  void unlockLevel(int levelNumber) {
-    final current = currentLevels[currentSubject] ?? 1;
-    if (levelNumber > current) {
-      currentLevels[currentSubject] = levelNumber;
-      // При разблокировке нового уровня открываем первый билет этого уровня
-      unlockedTickets[currentSubject]!.add(getFirstTicketOfLevel(levelNumber));
-      save();
-      notifyListeners();
+    final subjectTickets = _unlockedTickets[_currentSubject];
+    if (subjectTickets != null && !subjectTickets.contains(ticketNumber)) {
+      subjectTickets.add(ticketNumber);
+      _saveAndNotify();
     }
   }
 
-  // === Вспомогательные методы для работы с уровнями ===
-  int getFirstTicketOfLevel(int level) {
-    // Логика получения первого билета уровня
-    // Предположим, что в каждом уровне по 5 билетов
+  void unlockLevel(int levelNumber) {
+    final current = _currentLevels[_currentSubject] ?? 1;
+    if (levelNumber > current) {
+      _currentLevels[_currentSubject] = levelNumber;
+      final firstTicket = _getFirstTicketOfLevel(levelNumber);
+      _unlockedTickets[_currentSubject]?.add(firstTicket);
+      _saveAndNotify();
+    }
+  }
+
+  // === Вспомогательные методы ===
+  String _getTicketKey(Subject subject, int ticketNumber) {
+    return '${subject.index}_$ticketNumber';
+  }
+
+  int _getFirstTicketOfLevel(int level) {
     return (level - 1) * 5 + 1;
   }
 
   List<int> getTicketsForLevel(int level) {
-    // Возвращает список ID билетов для указанного уровня
-    // Предположим, что в каждом уровне по 5 билетов
     final List<int> tickets = [];
-    final startTicket = (level - 1) * 5 + 1;
+    final startTicket = _getFirstTicketOfLevel(level);
     for (int i = 0; i < 5; i++) {
       tickets.add(startTicket + i);
     }
     return tickets;
   }
 
-  // Проверяет, все ли билеты уровня завершены
   bool areAllTicketsCompletedInLevel(int level) {
     final tickets = getTicketsForLevel(level);
-    for (var ticketId in tickets) {
-      final ticket = getTicketProgress(currentSubject, ticketId);
+    for (final ticketId in tickets) {
+      final ticket = getTicketProgress(_currentSubject, ticketId);
       if (ticket == null || !ticket.isCompleted) {
         return false;
       }
@@ -261,54 +355,62 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
-  // === Загрузка GameState ===
+  int getCoinsRewardForLevel(int level) => (((level - 1) ~/ 5) + 1) * 100;
+
+  // === Загрузка ===
   static Future<GameState> load() async {
     final prefs = await SharedPreferences.getInstance();
-
-    Map<Subject, int> loadLevels() => {
-      Subject.chemistry: prefs.getInt('chemistry_level') ?? 1,
-      Subject.math: prefs.getInt('math_level') ?? 1,
-      Subject.history: prefs.getInt('history_level') ?? 1,
-    };
-
-    Map<Subject, Set<int>> loadCompleted() => {
-      Subject.chemistry: (prefs.getStringList('chemistry_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-      Subject.math: (prefs.getStringList('math_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-      Subject.history: (prefs.getStringList('history_completed') ?? [])
-          .map(int.parse)
-          .toSet(),
-    };
-
-    Map<Subject, Set<int>> loadUnlockedTickets() => {
-      Subject.chemistry:
-          (prefs.getStringList('chemistry_unlocked_tickets') ?? ['1'])
-              .map(int.parse)
-              .toSet(),
-      Subject.math: (prefs.getStringList('math_unlocked_tickets') ?? ['1'])
-          .map(int.parse)
-          .toSet(),
-      Subject.history:
-          (prefs.getStringList('history_unlocked_tickets') ?? ['1'])
-              .map(int.parse)
-              .toSet(),
-    };
-
-    final ticketList = prefs.getStringList('ticketsProgress') ?? [];
-    Map<String, TicketProgress> tickets = {};
-    for (var str in ticketList) {
-      final ticket = TicketProgress.deserialize(str);
-      tickets["${ticket.subject.name}_${ticket.ticketNumber}"] = ticket;
+    
+    // Вспомогательные функции для загрузки данных
+    Map<Subject, int> loadLevels() {
+      final levels = <Subject, int>{};
+      for (int i = 0; i < Subject.values.length; i++) {
+        levels[Subject.values[i]] = prefs.getInt('${_subjectKeys[i]}_level') ?? 1;
+      }
+      return levels;
     }
-
-    final subjectName = prefs.getString('currentSubject') ?? 'chemistry';
-    final subject = Subject.values.firstWhere(
-      (s) => s.name == subjectName,
-      orElse: () => Subject.chemistry,
-    );
+    
+    Map<Subject, Set<int>> loadCompleted() {
+      final completed = <Subject, Set<int>>{};
+      for (int i = 0; i < Subject.values.length; i++) {
+        final key = '${_subjectKeys[i]}_completed';
+        completed[Subject.values[i]] = (prefs.getStringList(key) ?? [])
+            .map(int.parse)
+            .toSet();
+      }
+      return completed;
+    }
+    
+    Map<Subject, Set<int>> loadUnlockedTickets() {
+      final unlocked = <Subject, Set<int>>{};
+      for (int i = 0; i < Subject.values.length; i++) {
+        final key = '${_subjectKeys[i]}_unlocked_tickets';
+        unlocked[Subject.values[i]] = (prefs.getStringList(key) ?? ['1'])
+            .map(int.parse)
+            .toSet();
+      }
+      return unlocked;
+    }
+    
+    // Загрузка прогресса билетов
+    final ticketList = prefs.getStringList(_ticketsProgressKey) ?? [];
+    final tickets = <String, TicketProgress>{};
+    for (final str in ticketList) {
+      try {
+        final ticket = TicketProgress.deserialize(str);
+        tickets[_getTicketKeyStatic(ticket.subject, ticket.ticketNumber)] = ticket;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error deserializing ticket: $e');
+        }
+      }
+    }
+    
+    final subjectName = prefs.getString(_currentSubjectKey) ?? 'chemistry';
+    final subjectIndex = _subjectKeys.indexOf(subjectName);
+    final subject = subjectIndex != -1 
+        ? Subject.values[subjectIndex]
+        : Subject.chemistry;
 
     return GameState(
       soundEnabled: prefs.getBool('soundEnabled') ?? true,
@@ -322,263 +424,284 @@ class GameState extends ChangeNotifier {
       currentLevels: loadLevels(),
       completedLevels: loadCompleted(),
       unlockedTickets: loadUnlockedTickets(),
-      ownedBackgrounds:
-          prefs.getStringList('ownedBackgrounds') ??
-          ['blue', 'green', 'purple', 'orange'],
+      ownedBackgrounds: (prefs.getStringList('ownedBackgrounds') ?? 
+          ['blue', 'green', 'purple', 'orange']).toSet(),
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
-      ownedFrames: prefs.getStringList('ownedFrames') ?? ['default'],
+      ownedFrames: (prefs.getStringList('ownedFrames') ?? ['default']).toSet(),
       selectedFrame: prefs.getString('selectedFrame') ?? 'default',
-      ownedAvatars: prefs.getStringList('ownedAvatars') ?? ['default'],
+      ownedAvatars: (prefs.getStringList('ownedAvatars') ?? ['default']).toSet(),
       selectedAvatar: prefs.getString('selectedAvatar') ?? 'default',
-      collectedAchievements:
-          (prefs.getStringList('collectedAchievements') ?? [])
-              .map(int.parse)
-              .toSet(),
+      collectedAchievements: (prefs.getStringList('collectedAchievements') ?? [])
+          .map(int.parse)
+          .toSet(),
       nickname: prefs.getString('nickname') ?? 'Player',
       ticketsProgress: tickets,
     );
   }
 
-  // === Сохранение GameState ===
+  static String _getTicketKeyStatic(Subject subject, int ticketNumber) {
+    return '${subject.index}_$ticketNumber';
+  }
+
+  // === Сохранение ===
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setBool('soundEnabled', soundEnabled);
-    await prefs.setBool('musicEnabled', musicEnabled);
-    await prefs.setBool('vibrationEnabled', vibrationEnabled);
-    await prefs.setDouble('musicVolume', musicVolume);
-    await prefs.setInt('playerLevel', playerLevel);
-    await prefs.setInt('currentXP', currentXP);
-    await prefs.setInt('coins', coins);
-    await prefs.setString('currentSubject', currentSubject.name);
-    await prefs.setInt('chemistry_level', currentLevels[Subject.chemistry]!);
-    await prefs.setInt('math_level', currentLevels[Subject.math]!);
-    await prefs.setInt('history_level', currentLevels[Subject.history]!);
-    await prefs.setStringList(
-      'chemistry_completed',
-      completedLevels[Subject.chemistry]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'math_completed',
-      completedLevels[Subject.math]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'history_completed',
-      completedLevels[Subject.history]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'chemistry_unlocked_tickets',
-      unlockedTickets[Subject.chemistry]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'math_unlocked_tickets',
-      unlockedTickets[Subject.math]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList(
-      'history_unlocked_tickets',
-      unlockedTickets[Subject.history]!.map((e) => e.toString()).toList(),
-    );
-    await prefs.setStringList('ownedBackgrounds', ownedBackgrounds);
-    await prefs.setString('selectedBackground', selectedBackground);
-    await prefs.setStringList('ownedFrames', ownedFrames);
-    await prefs.setString('selectedFrame', selectedFrame);
-    await prefs.setStringList('ownedAvatars', ownedAvatars);
-    await prefs.setString('selectedAvatar', selectedAvatar);
+    
+    // Основные настройки
+    await prefs.setBool('soundEnabled', _soundEnabled);
+    await prefs.setBool('musicEnabled', _musicEnabled);
+    await prefs.setBool('vibrationEnabled', _vibrationEnabled);
+    await prefs.setDouble('musicVolume', _musicVolume);
+    await prefs.setInt('playerLevel', _playerLevel);
+    await prefs.setInt('currentXP', _currentXP);
+    await prefs.setInt('coins', _coins);
+    await prefs.setString(_currentSubjectKey, _currentSubject.name);
+    
+    // Прогресс по предметам
+    for (int i = 0; i < Subject.values.length; i++) {
+      final subject = Subject.values[i];
+      final key = _subjectKeys[i];
+      
+      await prefs.setInt('${key}_level', _currentLevels[subject] ?? 1);
+      await prefs.setStringList(
+        '${key}_completed',
+        _completedLevels[subject]?.map((e) => e.toString()).toList() ?? [],
+      );
+      await prefs.setStringList(
+        '${key}_unlocked_tickets',
+        _unlockedTickets[subject]?.map((e) => e.toString()).toList() ?? ['1'],
+      );
+    }
+    
+    // Магазин и настройки
+    await prefs.setStringList('ownedBackgrounds', _ownedBackgrounds.toList());
+    await prefs.setString('selectedBackground', _selectedBackground);
+    await prefs.setStringList('ownedFrames', _ownedFrames.toList());
+    await prefs.setString('selectedFrame', _selectedFrame);
+    await prefs.setStringList('ownedAvatars', _ownedAvatars.toList());
+    await prefs.setString('selectedAvatar', _selectedAvatar);
     await prefs.setStringList(
       'collectedAchievements',
-      collectedAchievements.map((e) => e.toString()).toList(),
+      _collectedAchievements.map((e) => e.toString()).toList(),
     );
-    await prefs.setString('nickname', nickname);
-
-    // Сохраняем прогресс билетов
+    await prefs.setString('nickname', _nickname);
+    
+    // Прогресс билетов
     await prefs.setStringList(
-      'ticketsProgress',
-      ticketsProgress.values.map((t) => t.serialize()).toList(),
+      _ticketsProgressKey,
+      _ticketsProgress.values.map((t) => t.serialize()).toList(),
     );
   }
 
+  // === Основные операции ===
   bool finishTicket({
     required Subject subject,
     required int ticketNumber,
     required int totalQuestions,
   }) {
-    final key = "${subject.name}_$ticketNumber";
-    final ticket = ticketsProgress[key];
-
-    if (ticket == null) return false;
-    if (ticket.answeredQuestions.length < totalQuestions) return false;
-
-    ticket.isCompleted = true;
-
-    // ⬇️ ВАЖНО
+    final key = _getTicketKey(subject, ticketNumber);
+    final ticket = _ticketsProgress[key];
+    
+    if (ticket == null || ticket.answeredQuestions.length < totalQuestions) {
+      return false;
+    }
+    
+    _ticketsProgress[key] = TicketProgress(
+      ticketNumber: ticketNumber,
+      subject: subject,
+      answeredQuestions: ticket.answeredQuestions,
+      lastAnsweredIndex: ticket.lastAnsweredIndex,
+      isCompleted: true,
+    );
+    
     completeLevel(ticketNumber);
     unlockLevel(ticketNumber + 1);
-
-    save();
-    notifyListeners();
+    
+    _saveAndNotify();
     return true;
   }
 
-  // === Сеттеры и функционал магазина, уровней, XP ===
+  // === Сеттеры ===
   set setSoundEnabled(bool value) {
-    soundEnabled = value;
-    AudioManager().setSoundEnabled(value);
-    notifyListeners();
-    save();
+    if (_soundEnabled != value) {
+      _soundEnabled = value;
+      AudioManager().setSoundEnabled(value);
+      _saveAndNotify();
+    }
   }
 
   set setMusicEnabled(bool value) {
-    musicEnabled = value;
-    AudioManager().setMusicEnabled(value);
-    notifyListeners();
-    save();
+    if (_musicEnabled != value) {
+      _musicEnabled = value;
+      AudioManager().setMusicEnabled(value);
+      _saveAndNotify();
+    }
   }
 
   set setVibrationEnabled(bool value) {
-    vibrationEnabled = value;
-    notifyListeners();
-    save();
+    if (_vibrationEnabled != value) {
+      _vibrationEnabled = value;
+      _saveAndNotify();
+    }
   }
 
   set setMusicVolume(double value) {
-    musicVolume = value.clamp(0.0, 1.0);
-    AudioManager().setMusicVolume(value);
-    notifyListeners();
-    save();
+    final clampedValue = value.clamp(0.0, 1.0);
+    if (_musicVolume != clampedValue) {
+      _musicVolume = clampedValue;
+      AudioManager().setMusicVolume(clampedValue);
+      _saveAndNotify();
+    }
   }
 
   void switchSubject(Subject subject) {
-    currentSubject = subject;
-    notifyListeners();
-    save();
+    if (_currentSubject != subject) {
+      _currentSubject = subject;
+      _saveAndNotify();
+    }
   }
 
   void addXP(int xp) {
-    currentXP += xp;
-    while (currentXP >= xpForNextLevel) {
-      currentXP -= xpForNextLevel;
-      playerLevel++;
-      coins += getCoinsRewardForLevel(playerLevel);
+    if (xp <= 0) return;
+    
+    _currentXP += xp;
+    while (_currentXP >= xpForNextLevel) {
+      _currentXP -= xpForNextLevel;
+      _playerLevel++;
+      _coins += getCoinsRewardForLevel(_playerLevel);
     }
-    notifyListeners();
-    save();
+    
+    _saveAndNotify();
   }
 
   void completeLevel(int levelNumber) {
-    final subject = currentSubject;
-    completedLevels[subject]!.add(levelNumber);
-    notifyListeners();
-    save();
+    final subject = _currentSubject;
+    if (!_completedLevels[subject]!.contains(levelNumber)) {
+      _completedLevels[subject]!.add(levelNumber);
+      _saveAndNotify();
+    }
   }
 
-  // === Магазин и достижения ===
+  // === Магазин ===
   void selectBackground(String id) {
-    if (ownedBackgrounds.contains(id)) {
-      selectedBackground = id;
-      notifyListeners();
-      save();
+    if (_ownedBackgrounds.contains(id) && _selectedBackground != id) {
+      _selectedBackground = id;
+      _saveAndNotify();
     }
   }
 
   bool buyBackground(String id, int price) {
-    if (coins >= price && !ownedBackgrounds.contains(id)) {
-      coins -= price;
-      ownedBackgrounds.add(id);
-      selectedBackground = id;
-      notifyListeners();
-      save();
+    if (_coins >= price && !_ownedBackgrounds.contains(id)) {
+      _coins -= price;
+      _ownedBackgrounds.add(id);
+      _selectedBackground = id;
+      _saveAndNotify();
       return true;
     }
     return false;
   }
 
   void selectFrame(String id) {
-    if (ownedFrames.contains(id)) {
-      selectedFrame = id;
-      notifyListeners();
-      save();
+    if (_ownedFrames.contains(id) && _selectedFrame != id) {
+      _selectedFrame = id;
+      _saveAndNotify();
     }
   }
 
   bool buyFrame(String id, int price) {
-    if (coins >= price && !ownedFrames.contains(id)) {
-      coins -= price;
-      ownedFrames.add(id);
-      selectedFrame = id;
-      notifyListeners();
-      save();
+    if (_coins >= price && !_ownedFrames.contains(id)) {
+      _coins -= price;
+      _ownedFrames.add(id);
+      _selectedFrame = id;
+      _saveAndNotify();
       return true;
     }
     return false;
   }
 
   void selectAvatar(String id) {
-    if (ownedAvatars.contains(id)) {
-      selectedAvatar = id;
-      notifyListeners();
-      save();
+    if (_ownedAvatars.contains(id) && _selectedAvatar != id) {
+      _selectedAvatar = id;
+      _saveAndNotify();
     }
   }
 
   bool buyAvatar(String id, int price) {
-    if (coins >= price && !ownedAvatars.contains(id)) {
-      coins -= price;
-      ownedAvatars.add(id);
-      selectedAvatar = id;
-      notifyListeners();
-      save();
+    if (_coins >= price && !_ownedAvatars.contains(id)) {
+      _coins -= price;
+      _ownedAvatars.add(id);
+      _selectedAvatar = id;
+      _saveAndNotify();
       return true;
     }
     return false;
   }
 
-  bool isAchievementCollected(int index) =>
-      collectedAchievements.contains(index);
+  bool isAchievementCollected(int index) => _collectedAchievements.contains(index);
 
   void collectAchievement(int index, int reward) {
-    if (!collectedAchievements.contains(index)) {
-      coins += reward;
-      collectedAchievements.add(index);
-      notifyListeners();
-      save();
+    if (!_collectedAchievements.contains(index)) {
+      _coins += reward;
+      _collectedAchievements.add(index);
+      _saveAndNotify();
     }
   }
 
+  // === Сброс прогресса ===
   Future<void> resetProgress({Subject? subject}) async {
     if (subject != null) {
-      completedLevels[subject]!.clear();
-      currentLevels[subject] = 1;
-      unlockedTickets[subject] = {1};
+      _completedLevels[subject]!.clear();
+      _currentLevels[subject] = 1;
+      _unlockedTickets[subject] = {1};
+      
       // Удаляем прогресс по билетам этого предмета
-      ticketsProgress.removeWhere((key, value) => value.subject == subject);
+      _ticketsProgress.removeWhere((key, value) => value.subject == subject);
     } else {
-      for (var s in Subject.values) {
-        completedLevels[s]!.clear();
-        currentLevels[s] = 1;
-        unlockedTickets[s] = {1};
+      for (final s in Subject.values) {
+        _completedLevels[s]!.clear();
+        _currentLevels[s] = 1;
+        _unlockedTickets[s] = {1};
       }
-      playerLevel = 1;
-      currentXP = 0;
-      coins = 0;
-      ownedBackgrounds = ['blue', 'green', 'purple', 'orange'];
-      selectedBackground = 'blue';
-      ownedFrames = ['default'];
-      selectedFrame = 'default';
-      ownedAvatars = ['default'];
-      selectedAvatar = 'default';
-      collectedAchievements.clear();
-      ticketsProgress.clear();
-      soundEnabled = true;
-      musicEnabled = true;
-      vibrationEnabled = true;
-      musicVolume = 0.7;
+      
+      _playerLevel = 1;
+      _currentXP = 0;
+      _coins = 0;
+      _ownedBackgrounds.clear();
+      _ownedBackgrounds.addAll({'blue', 'green', 'purple', 'orange'});
+      _selectedBackground = 'blue';
+      _ownedFrames.clear();
+      _ownedFrames.add('default');
+      _selectedFrame = 'default';
+      _ownedAvatars.clear();
+      _ownedAvatars.add('default');
+      _selectedAvatar = 'default';
+      _collectedAchievements.clear();
+      _ticketsProgress.clear();
+      
+      _soundEnabled = true;
+      _musicEnabled = true;
+      _vibrationEnabled = true;
+      _musicVolume = 0.7;
+      
       AudioManager().setSoundEnabled(true);
       AudioManager().setMusicEnabled(true);
       AudioManager().setMusicVolume(0.7);
     }
+    
     notifyListeners();
     await save();
   }
+
+  // === Вспомогательные методы ===
+  void _saveAndNotify() {
+    save();
+    notifyListeners();
+  }
+
+  // Проверка владения предметами магазина
+  bool ownsBackground(String id) => _ownedBackgrounds.contains(id);
+  bool ownsFrame(String id) => _ownedFrames.contains(id);
+  bool ownsAvatar(String id) => _ownedAvatars.contains(id);
 
   @override
   void dispose() {
