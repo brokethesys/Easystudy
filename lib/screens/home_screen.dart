@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../data/game_state.dart';
+import 'achievements_screen.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
-import 'achievements_screen.dart';
-import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,28 +15,44 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final PageController _pageController = PageController(initialPage: 1);
-  int _currentPage = 1;
-  double _indicatorPosition = 0.0;
+  /* =======================
+     CONSTANTS
+     ======================= */
+
+  static const int _initialPage = 1;
+  static const int _pageCount = 3;
+
+  /* =======================
+     STATE
+     ======================= */
+
+  late final PageController _pageController = PageController(
+    initialPage: _initialPage,
+  );
+
+  int _currentPage = _initialPage;
+
+  /* =======================
+     LIFECYCLE
+     ======================= */
 
   @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(() {
-      setState(() {
-        _indicatorPosition = ((_pageController.page ?? _currentPage).clamp(
-          0.0,
-          2.0,
-        )).toDouble();
-      });
-    });
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
+
+  /* =======================
+     NAVIGATION
+     ======================= */
 
   void _onPageChanged(int index) {
     setState(() => _currentPage = index);
   }
 
-  void _onBottomNavTap(int index) {
+  void _navigateToPage(int index) {
+    if (index == _currentPage) return;
+
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -43,34 +60,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /* =======================
+     UI
+     ======================= */
+
   @override
   Widget build(BuildContext context) {
+    // Подписка нужна, чтобы HomeScreen корректно реагировал
+    // на изменения глобального состояния (например, валюты)
     context.watch<GameState>();
 
-    final icons = [
-      'assets/images/icons/icon_shop.png',
-      'assets/images/icons/icon_map.png',
-      'assets/images/icons/icon_achievements.png',
-    ];
-
-    const labels = ['Магазин', 'Уровни', 'Достижения'];
-
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 67, 91, 112),
+      backgroundColor: const Color(0xFF435B70),
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
-        children: const [
-          ShopScreen(),
-          MapScreen(),
-          AchievementsScreen(),
-        ],
+        children: const [ShopScreen(), MapScreen(), AchievementsScreen()],
       ),
-      bottomNavigationBar: _buildBottomBar(icons, labels),
+      bottomNavigationBar: _BottomNavigationBar(
+        currentIndex: _currentPage,
+        onTap: _navigateToPage,
+      ),
     );
   }
+}
 
-  Widget _buildBottomBar(List<String> icons, List<String> labels) {
+/* =======================
+   BOTTOM NAV BAR
+   ======================= */
+
+class _BottomNavigationBar extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _BottomNavigationBar({required this.currentIndex, required this.onTap});
+
+  static const _icons = [
+    'assets/images/icons/icon_shop.png',
+    'assets/images/icons/icon_map.png',
+    'assets/images/icons/icon_achievements.png',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       height: 78,
       decoration: BoxDecoration(
@@ -87,49 +119,76 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: Row(
-        children: List.generate(3, (i) {
-          final bool active = _currentPage == i;
-          bool isPressed = false;
-
+        children: List.generate(_icons.length, (index) {
           return Expanded(
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                return GestureDetector(
-                  onTapDown: (_) => setState(() => isPressed = true),
-                  onTapUp: (_) {
-                    setState(() => isPressed = false);
-                    HapticFeedback.lightImpact();
-                    _onBottomNavTap(i);
-                  },
-                  onTapCancel: () => setState(() => isPressed = false),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 100),
-                    transform: Matrix4.translationValues(
-                      0,
-                      isPressed ? 4 : 0,
-                      0,
-                    ),
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF131F24),
-                      border: active
-                          ? Border.all(color: const Color(0xFF3C85A7), width: 2)
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        icons[i],
-                        width: 40,
-                        height: 40,
-                      ),
-                    ),
-                  ),
-                );
-              },
+            child: _BottomNavItem(
+              iconPath: _icons[index],
+              isActive: index == currentIndex,
+              onTap: () => onTap(index),
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+/* =======================
+   BOTTOM NAV ITEM
+   ======================= */
+
+class _BottomNavItem extends StatefulWidget {
+  final String iconPath;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _BottomNavItem({
+    required this.iconPath,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<_BottomNavItem> createState() => _BottomNavItemState();
+}
+
+class _BottomNavItemState extends State<_BottomNavItem> {
+  bool _isPressed = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    setState(() => _isPressed = false);
+    HapticFeedback.lightImpact();
+    widget.onTap();
+  }
+
+  void _handleTapCancel() {
+    setState(() => _isPressed = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        transform: Matrix4.translationValues(0, _isPressed ? 4 : 0, 0),
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131F24),
+          borderRadius: BorderRadius.circular(8),
+          border: widget.isActive
+              ? Border.all(color: const Color(0xFF3C85A7), width: 2)
+              : null,
+        ),
+        child: Center(
+          child: Image.asset(widget.iconPath, width: 40, height: 40),
+        ),
       ),
     );
   }
