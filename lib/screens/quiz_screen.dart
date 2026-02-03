@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 import 'subquestion_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -32,6 +33,16 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   static const double actionButtonHeight = 50;
   static const double actionButtonBottom = 54;
+
+  int _firstPendingIndex(TicketProgress? progress, int total) {
+    if (total <= 0) return 0;
+    for (int i = 0; i < total; i++) {
+      if (progress?.answeredQuestions[i] != true) {
+        return i;
+      }
+    }
+    return total - 1;
+  }
 
   @override
   void initState() {
@@ -89,7 +100,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       correctAnswers = ticketProgress.answeredQuestions.values
           .where((v) => v == true) // Только правильные ответы
           .length;
-      lastSubquestionIndex = ticketProgress.lastAnsweredIndex;
+      lastSubquestionIndex =
+          _firstPendingIndex(ticketProgress, totalSubquestions);
     } else {
       correctAnswers = 0;
       lastSubquestionIndex = 0;
@@ -106,7 +118,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
     setState(() {
       ticketData = ticket;
-      startedLearning = lastSubquestionIndex > 0;
+      startedLearning = ticketProgress?.answeredQuestions.isNotEmpty ?? false;
     });
   }
 
@@ -132,7 +144,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             .where((v) => v == true)
             .length ??
         0;
-    final currentLastIndex = ticketProgress?.lastAnsweredIndex ?? 0;
+    final currentLastIndex =
+        _firstPendingIndex(ticketProgress, totalSubquestions);
 
     final result = await Navigator.push(
       context,
@@ -193,13 +206,13 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildProgressBar() {
+  Widget _buildProgressBar(AppColors colors, Color textColor) {
     return Stack(
       children: [
         Container(
           height: 22,
           decoration: BoxDecoration(
-            color: const Color(0xFF37464F),
+            color: colors.track,
             borderRadius: BorderRadius.circular(12),
           ),
         ),
@@ -222,11 +235,11 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           child: Center(
             child: Text(
               "$correctAnswers / $totalSubquestions",
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'ClashRoyale',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: textColor,
                 shadows: [Shadow(color: Colors.black, blurRadius: 2)],
               ),
             ),
@@ -236,7 +249,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildActionButton() {
+  Widget _buildActionButton(AppColors colors) {
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
 
@@ -262,7 +275,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
               fontFamily: 'ClashRoyale',
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: isUnlocked ? const Color(0xFF101E27) : Colors.white70,
+              color: isUnlocked ? const Color(0xFF101E27) : colors.textSecondary,
             ),
           ),
         ),
@@ -272,31 +285,35 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final progressTextColor = Theme.of(context).colorScheme.onBackground;
     final theoryText = ticketData?['theory'] ?? '';
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24),
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF131F24),
+        backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           ticketData != null ? 'Билет ${ticketData!['id']}' : 'Загрузка...',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'ClashRoyale',
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: colors.textPrimary,
           ),
         ),
       ),
       body: ticketData == null
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(
+              child: CircularProgressIndicator(color: colors.textPrimary),
+            )
           : Stack(
               children: [
                 SingleChildScrollView(
@@ -325,7 +342,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                               Expanded(
                                 child: Text(
                                   'Сначала завершите предыдущий билет',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'ClashRoyale',
                                     fontSize: 14,
                                     color: Colors.orange,
@@ -338,22 +355,22 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                       ],
                       Text(
                         ticketData!['question'] ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'ClashRoyale',
                           fontSize: 18,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildProgressBar(),
+                      _buildProgressBar(colors, progressTextColor),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Вопросы для подготовки:',
                         style: TextStyle(
                           fontFamily: 'ClashRoyale',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -389,7 +406,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                         : const Color(
                                             0xFF5A2A2A,
                                           ).withOpacity(0.7))
-                                  : const Color(0xFF1F2C36),
+                                  : colors.surfaceAlt,
                               borderRadius: BorderRadius.circular(8),
                               border: isAnswered
                                   ? Border.all(
@@ -420,8 +437,8 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                       fontFamily: 'ClashRoyale',
                                       fontSize: 14,
                                       color: isAnswered
-                                          ? Colors.white
-                                          : Colors.white70,
+                                          ? colors.textPrimary
+                                          : colors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -434,19 +451,19 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1F2C36),
+                          color: colors.surfaceAlt,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Теория',
                               style: TextStyle(
                                 fontFamily: 'ClashRoyale',
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: colors.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -455,18 +472,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                 theoryText,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'ClashRoyale',
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: colors.textSecondary,
                                 ),
                               ),
                               secondChild: Text(
                                 theoryText,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'ClashRoyale',
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: colors.textSecondary,
                                 ),
                               ),
                               crossFadeState: theoryExpanded
@@ -487,10 +504,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                 children: [
                                   Text(
                                     theoryExpanded ? 'Свернуть' : 'Развернуть',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'ClashRoyale',
                                       fontSize: 14,
-                                      color: Colors.blueAccent,
+                                      color: colors.accent,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -498,7 +515,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                                     theoryExpanded
                                         ? Icons.keyboard_arrow_up
                                         : Icons.keyboard_arrow_down,
-                                    color: Colors.blueAccent,
+                                    color: colors.accent,
                                   ),
                                 ],
                               ),
@@ -508,7 +525,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                       ),
                       if (theoryExpanded) ...[
                         const SizedBox(height: 24),
-                        _buildActionButton(),
+                        _buildActionButton(colors),
                       ],
                     ],
                   ),
@@ -518,7 +535,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                     left: 16,
                     right: 16,
                     bottom: actionButtonBottom,
-                    child: _buildActionButton(),
+                    child: _buildActionButton(colors),
                   ),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'home_screen.dart'; // Подключи свой HomeScreen
 
 class WelcomeScreen extends StatefulWidget {
@@ -64,8 +65,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF001B33),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -80,7 +82,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent,
+                      color: colors.accent,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
                         BoxShadow(
@@ -101,12 +103,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 const SizedBox(height: 32),
 
                 // Заголовок
-                const Text(
+                Text(
                   "Добро пожаловать!",
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: colors.textPrimary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -114,13 +116,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 const SizedBox(height: 16),
 
                 // Подзаголовок
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
                     "Учись по реальным билетам прошлых лет, отслеживай прогресс и открывай новые уровни.",
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.white70,
+                      color: colors.textSecondary,
                       height: 1.4,
                     ),
                     textAlign: TextAlign.center,

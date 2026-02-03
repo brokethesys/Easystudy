@@ -4,6 +4,7 @@ import 'data/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/map_screen.dart';
+import 'theme/app_theme.dart';
 
 final ValueNotifier<String> currentBackground = ValueNotifier<String>('blue');
 
@@ -33,22 +34,26 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: currentBackground,
       builder: (context, background, _) {
-        Color scaffoldColor = const Color(0xFF001B33);
-        if (background == 'white') {
-          scaffoldColor = Colors.white;
-        } else if (background == 'blue') {
-          scaffoldColor = const Color(0xFF001B33);
-        } else if (background == 'dark') {
-          scaffoldColor = const Color(0xFF131F24);
-        }
+        final gameState = context.watch<GameState>();
+        const Color darkBackground = Color(0xFF121F25);
+
+        final ThemeMode mode = () {
+          switch (gameState.themeMode) {
+            case AppThemeMode.light:
+              return ThemeMode.light;
+            case AppThemeMode.dark:
+              return ThemeMode.dark;
+            case AppThemeMode.system:
+            default:
+              return ThemeMode.system;
+          }
+        }();
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            scaffoldBackgroundColor: scaffoldColor,
-            fontFamily: 'Roboto',
-            useMaterial3: true,
-          ),
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(background: darkBackground),
+          themeMode: mode,
           initialRoute: showWelcomeScreen ? '/welcome' : '/home',
           routes: {
             '/welcome': (context) => const WelcomeScreen(),

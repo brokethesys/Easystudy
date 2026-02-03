@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import '../data/game_state.dart';
 import '../audio/audio_manager.dart';
+import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,6 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool localMusic;
   late bool localVibration;
   late double localVolume;
+  late AppThemeMode localThemeMode;
 
   @override
   void initState() {
@@ -25,35 +27,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     localMusic = state.musicEnabled;
     localVibration = state.vibrationEnabled;
     localVolume = state.musicVolume;
+    localThemeMode = state.themeMode;
   }
 
   @override
   Widget build(BuildContext context) {
     final state = context.read<GameState>();
+    final colors = AppColors.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24),
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF131F24),
+        backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.orangeAccent),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           "НАСТРОЙКИ",
           style: TextStyle(
             fontFamily: 'ClashRoyale',
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white, // Изменено на белый цвет
+            color: colors.textPrimary,
           ),
         ),
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(
-            color: const Color(0xFF2A3A42), // Тонкая серая линия
+            color: colors.border,
             height: 1.0,
           ),
         ),
@@ -66,7 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ================= Аудио =================
-              _sectionHeader(text: "АУДИО"),
+              _sectionHeader(text: "АУДИО", colors: colors),
               const SizedBox(height: 12),
               _customSwitchRow(
                 label: 'ЗВУКИ',
@@ -76,6 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => localSound = v);
                   state.setSoundEnabled = v;
                 },
+                colors: colors,
               ),
               const SizedBox(height: 16),
               _customSwitchRow(
@@ -86,11 +91,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => localMusic = v);
                   state.setMusicEnabled = v;
                 },
+                colors: colors,
               ),
               if (localMusic) ...[
                 const SizedBox(height: 16),
                 _volumeSlider(
                   value: localVolume,
+                  colors: colors,
                   onChanged: (v) {
                     setState(() => localVolume = v);
                     state.setMusicVolume = v;
@@ -99,8 +106,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
 
               const SizedBox(height: 24),
+              // ================= Тема =================
+              _sectionHeader(text: "ТЕМА", colors: colors),
+              const SizedBox(height: 12),
+              _themeModeSelector(
+                current: localThemeMode,
+                colors: colors,
+                onChanged: (mode) {
+                  HapticFeedback.lightImpact();
+                  setState(() => localThemeMode = mode);
+                  state.setThemeMode = mode;
+                },
+              ),
+
+              const SizedBox(height: 24),
               // ================= Вибрация =================
-              _sectionHeader(text: "ОБРАТНАЯ СВЯЗЬ"),
+              _sectionHeader(text: "ОБРАТНАЯ СВЯЗЬ", colors: colors),
               const SizedBox(height: 12),
               _customSwitchRow(
                 label: 'ВИБРАЦИЯ',
@@ -110,6 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => localVibration = v);
                   state.setVibrationEnabled = v;
                 },
+                colors: colors,
               ),
 
               const SizedBox(height: 24),
@@ -117,12 +139,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _actionButton(
                 label: 'ПОДДЕРЖКА',
                 icon: Icons.support_agent,
-                color: const Color(0xFF48BFF8),
+                color: colors.accent,
                 onTap: () => _showSupportMessage(context),
               ),
 
               const SizedBox(height: 20),
-              _buildVersionInfo(),
+              _buildVersionInfo(colors),
             ],
           ),
         ),
@@ -131,13 +153,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==================
-  static Widget _sectionHeader({required String text}) {
+  static Widget _sectionHeader({
+    required String text,
+    required AppColors colors,
+  }) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF49C0F7),
+        color: colors.accent,
         letterSpacing: 1.2,
       ),
     );
@@ -148,10 +173,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String label,
     required bool value,
     required ValueChanged<bool> onChanged,
+    required AppColors colors,
   }) {
-    const Color activeColor = Color(0xFF48BFF8);
-    const Color inactiveColor = Color(0xFF36454E);
-    const Color thumbColor = Color(0xFF121F25);
+    final Color activeColor = colors.accent;
+    final Color inactiveColor = colors.border;
+    final Color thumbColor = colors.panel;
     
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -161,10 +187,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Название функции
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: colors.textPrimary,
             ),
           ),
           // Переключатель - более узкий
@@ -192,22 +218,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Container(
                       width: 34, // Уменьшил размер квадратика (было 40)
                       height: 34, // Уменьшил размер квадратика (было 40)
-                      decoration: BoxDecoration(
-                        color: thumbColor,
-                        borderRadius: BorderRadius.circular(6), // Чуть меньше скругление
-                        border: Border.all(
-                          color: value ? activeColor : inactiveColor,
-                          width: 1.5, // Немного тоньше обводка
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15), // Более прозрачная тень
-                            blurRadius: 3,
-                            offset: const Offset(0, 1.5),
-                          ),
-                        ],
+                    decoration: BoxDecoration(
+                      color: thumbColor,
+                      borderRadius: BorderRadius.circular(6), // Чуть меньше скругление
+                      border: Border.all(
+                        color: value ? activeColor : inactiveColor,
+                        width: 1.5, // Немного тоньше обводка
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1.5),
+                        ),
+                      ],
                     ),
+                  ),
                   ),
                 ],
               ),
@@ -220,6 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static Widget _volumeSlider({
     required double value,
+    required AppColors colors,
     required ValueChanged<double> onChanged,
   }) {
     return Column(
@@ -231,14 +258,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           max: 1,
           divisions: 10,
           onChanged: onChanged,
-          activeColor: const Color(0xFF48BFF8),
-          inactiveColor: const Color(0xFF2A3A42),
+          activeColor: colors.accent,
+          inactiveColor: colors.border,
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text("Тихо", style: TextStyle(color: Colors.white70, fontSize: 12)),
-            Text("Громко", style: TextStyle(color: Colors.white70, fontSize: 12)),
+          children: [
+            Text(
+              "Тихо",
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            ),
+            Text(
+              "Громко",
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            ),
           ],
         ),
       ],
@@ -285,22 +318,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  static Widget _buildVersionInfo() {
+  static Widget _buildVersionInfo(AppColors colors) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1519),
+        color: colors.panel,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2A3A42)),
+        border: Border.all(color: colors.border),
       ),
-      child: const Text(
+      child: Text(
         'EasyStudy v1.0.0',
         style: TextStyle(
           fontSize: 11,
-          color: Colors.white70,
+          color: colors.textSecondary,
         ),
         textAlign: TextAlign.center,
       ),
+    );
+  }
+
+  static Widget _themeModeSelector({
+    required AppThemeMode current,
+    required AppColors colors,
+    required ValueChanged<AppThemeMode> onChanged,
+  }) {
+    Widget buildOption(AppThemeMode mode, String label) {
+      final bool isSelected = current == mode;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => onChanged(mode),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.accent : colors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: colors.border),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? Colors.white : colors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        buildOption(AppThemeMode.system, 'Системная'),
+        const SizedBox(width: 8),
+        buildOption(AppThemeMode.light, 'Светлая'),
+        const SizedBox(width: 8),
+        buildOption(AppThemeMode.dark, 'Темная'),
+      ],
     );
   }
 

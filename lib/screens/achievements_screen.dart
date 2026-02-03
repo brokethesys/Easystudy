@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 
 /// Тип достижения — влияет на цвет прогресса и визуальные метки
 enum AchievementType { tickets, perfect, time }
@@ -158,22 +159,23 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
+    final colors = AppColors.of(context);
     final achievements = _buildAchievements(gameState);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'Достижения',
                 style: TextStyle(
                   fontFamily: 'ClashRoyale',
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 20),
@@ -236,32 +238,33 @@ class AchievementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF131F24),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF37464F), width: 2),
+        border: Border.all(color: colors.track, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             achievement.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'ClashRoyale',
               fontSize: 20,
-              color: Colors.white,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             achievement.description,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'ClashRoyale',
               fontSize: 12,
-              color: Color(0xFF9E9E9E),
+              color: colors.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
@@ -272,7 +275,7 @@ class AchievementCard extends StatelessWidget {
                 Container(
                   height: 20,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF37464F),
+                    color: colors.track,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -294,9 +297,9 @@ class AchievementCard extends StatelessWidget {
                           : achievement.isCompleted
                           ? 'Получить награду'
                           : '${achievement.progress}/${achievement.goal}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'ClashRoyale',
-                        color: Colors.white,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),

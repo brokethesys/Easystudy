@@ -4,6 +4,8 @@ import '../audio/audio_manager.dart';
 
 enum Subject { chemistry, math, history }
 
+enum AppThemeMode { system, light, dark }
+
 class TicketProgress {
   final int ticketNumber;
   final Subject subject;
@@ -82,6 +84,7 @@ class GameState extends ChangeNotifier {
   bool _musicEnabled;
   bool _vibrationEnabled;
   double _musicVolume;
+  AppThemeMode _themeMode;
   
   int _playerLevel;
   int _currentXP;
@@ -119,6 +122,7 @@ class GameState extends ChangeNotifier {
   bool get musicEnabled => _musicEnabled;
   bool get vibrationEnabled => _vibrationEnabled;
   double get musicVolume => _musicVolume;
+  AppThemeMode get themeMode => _themeMode;
   int get playerLevel => _playerLevel;
   int get currentXP => _currentXP;
   int get coins => _coins;
@@ -160,6 +164,7 @@ class GameState extends ChangeNotifier {
     bool musicEnabled = true,
     bool vibrationEnabled = true,
     double musicVolume = 0.7,
+    AppThemeMode themeMode = AppThemeMode.system,
     int playerLevel = 1,
     int currentXP = 0,
     int coins = 0,
@@ -180,6 +185,7 @@ class GameState extends ChangeNotifier {
         _musicEnabled = musicEnabled,
         _vibrationEnabled = vibrationEnabled,
         _musicVolume = musicVolume,
+        _themeMode = themeMode,
         _playerLevel = playerLevel,
         _currentXP = currentXP,
         _coins = coins,
@@ -250,14 +256,18 @@ class GameState extends ChangeNotifier {
     final existingProgress = _ticketsProgress[key];
     if (existingProgress != null) {
       // Создаем новую копию с обновленными данными
+      final updatedAnswers =
+          Map<int, bool>.from(existingProgress.answeredQuestions)
+            ..[questionNumber] = isCorrect;
+      final nextLastAnsweredIndex = isCorrect &&
+              questionNumber > existingProgress.lastAnsweredIndex
+          ? questionNumber
+          : existingProgress.lastAnsweredIndex;
       _ticketsProgress[key] = TicketProgress(
         ticketNumber: ticketNumber,
         subject: subject,
-        answeredQuestions: Map<int, bool>.from(existingProgress.answeredQuestions)
-          ..[questionNumber] = isCorrect,
-        lastAnsweredIndex: questionNumber > existingProgress.lastAnsweredIndex
-            ? questionNumber
-            : existingProgress.lastAnsweredIndex,
+        answeredQuestions: updatedAnswers,
+        lastAnsweredIndex: nextLastAnsweredIndex,
         isCompleted: existingProgress.isCompleted,
       );
     } else {
@@ -265,7 +275,7 @@ class GameState extends ChangeNotifier {
         ticketNumber: ticketNumber,
         subject: subject,
         answeredQuestions: {questionNumber: isCorrect},
-        lastAnsweredIndex: questionNumber,
+        lastAnsweredIndex: isCorrect ? questionNumber : 0,
         isCompleted: false,
       );
     }
@@ -417,6 +427,15 @@ class GameState extends ChangeNotifier {
       musicEnabled: prefs.getBool('musicEnabled') ?? true,
       vibrationEnabled: prefs.getBool('vibrationEnabled') ?? true,
       musicVolume: prefs.getDouble('musicVolume') ?? 0.7,
+      themeMode: () {
+        final saved = prefs.getInt('themeMode');
+        if (saved == null ||
+            saved < 0 ||
+            saved >= AppThemeMode.values.length) {
+          return AppThemeMode.system;
+        }
+        return AppThemeMode.values[saved];
+      }(),
       playerLevel: prefs.getInt('playerLevel') ?? 1,
       currentXP: prefs.getInt('currentXP') ?? 0,
       coins: prefs.getInt('coins') ?? 0,
@@ -452,6 +471,7 @@ class GameState extends ChangeNotifier {
     await prefs.setBool('musicEnabled', _musicEnabled);
     await prefs.setBool('vibrationEnabled', _vibrationEnabled);
     await prefs.setDouble('musicVolume', _musicVolume);
+    await prefs.setInt('themeMode', _themeMode.index);
     await prefs.setInt('playerLevel', _playerLevel);
     await prefs.setInt('currentXP', _currentXP);
     await prefs.setInt('coins', _coins);
@@ -550,6 +570,13 @@ class GameState extends ChangeNotifier {
     if (_musicVolume != clampedValue) {
       _musicVolume = clampedValue;
       AudioManager().setMusicVolume(clampedValue);
+      _saveAndNotify();
+    }
+  }
+
+  set setThemeMode(AppThemeMode mode) {
+    if (_themeMode != mode) {
+      _themeMode = mode;
       _saveAndNotify();
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 
 class SubquestionScreen extends StatefulWidget {
   final List<dynamic> subquestions;
@@ -41,6 +42,16 @@ class _SubquestionScreenState extends State<SubquestionScreen>
 
   static const double actionButtonHeight = 50;
   static const double actionButtonBottom = 54;
+
+  int _firstPendingIndex(TicketProgress? progress) {
+    if (questionsQueue.isEmpty) return 0;
+    for (int i = 0; i < questionsQueue.length; i++) {
+      if (progress?.answeredQuestions[i] != true) {
+        return i;
+      }
+    }
+    return questionsQueue.length - 1;
+  }
 
   @override
   void initState() {
@@ -89,16 +100,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
       correctAnswers = ticketProgress.answeredQuestions.values
           .where((v) => v == true)
           .length;
-
-      if (ticketProgress.answeredQuestions.isNotEmpty) {
-        final maxAnsweredIndex = ticketProgress.answeredQuestions.keys.reduce(
-          (a, b) => a > b ? a : b,
-        );
-        if (maxAnsweredIndex > widget.startIndex) {
-          currentIndex = maxAnsweredIndex.clamp(
-              0, questionsQueue.length - 1);
-        }
-      }
+      currentIndex = _firstPendingIndex(ticketProgress);
     }
   }
 
@@ -240,12 +242,15 @@ class _SubquestionScreenState extends State<SubquestionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     if (questionsQueue.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF131F24),
-        body: const Center(
-          child: Text('Нет вопросов для этого билета',
-              style: TextStyle(color: Colors.white)),
+        backgroundColor: colors.background,
+        body: Center(
+          child: Text(
+            'Нет вопросов для этого билета',
+            style: TextStyle(color: colors.textPrimary),
+          ),
         ),
       );
     }
@@ -285,12 +290,12 @@ class _SubquestionScreenState extends State<SubquestionScreen>
         _getActionButtonConfig(isAlreadyAnswered, wasPreviousCorrect, attempt);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24),
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF131F24),
+        backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () {
             HapticFeedback.selectionClick();
             Navigator.pop(context, {
@@ -305,7 +310,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
           builder: (_, __) => Container(
             height: 14,
             decoration: BoxDecoration(
-              color: const Color(0xFF37464F),
+              color: colors.track,
               borderRadius: BorderRadius.circular(7),
             ),
             child: FractionallySizedBox(
@@ -329,10 +334,10 @@ class _SubquestionScreenState extends State<SubquestionScreen>
               children: [
                 Text(
                   current['question'],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'ClashRoyale',
                     fontSize: 18,
-                    color: Colors.white,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -346,7 +351,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                           ? (correct as List).contains(index)
                           : index == correct;
 
-                      Color color = Colors.white70;
+                      Color color = colors.textSecondary;
                       IconData icon = isMultiple
                           ? Icons.check_box_outline_blank
                           : Icons.radio_button_unchecked;
@@ -359,7 +364,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                               : Icons.radio_button_checked;
                         }
                       } else if (!showExplanation && isSelected) {
-                        color = Colors.blueAccent;
+                        color = colors.accent;
                         icon = isMultiple
                             ? Icons.check_box
                             : Icons.radio_button_checked;
@@ -400,7 +405,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1F2C36),
+                            color: colors.surfaceAlt,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: color),
                           ),
@@ -442,7 +447,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                   padding: EdgeInsets.fromLTRB(
                       16, 20, 16, actionButtonHeight + actionButtonBottom + 16),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 32, 47, 54),
+                    color: colors.surface,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(24),
                     ),

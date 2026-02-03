@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 import '../screens/settings_screen.dart'; // Импорт нового экрана настроек
 
 class TopHUD extends StatelessWidget {
@@ -10,9 +11,10 @@ class TopHUD extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
+    final colors = AppColors.of(context);
     final double widgetHeight = 40.0;
-    final Color switchColor = const Color(0xFF49C0F7);
-    final Color backgroundColor = const Color(0xFF131F24);
+    final Color switchColor = colors.accent;
+    final Color backgroundColor = colors.background;
 
     final double topPadding = MediaQuery.of(context).padding.top;
 
@@ -43,11 +45,11 @@ class TopHUD extends StatelessWidget {
                     child: Center(
                       child: Text(
                         '${state.playerLevel}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'ClashRoyale',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),

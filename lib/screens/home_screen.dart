@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 import 'achievements_screen.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
@@ -69,9 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // Подписка нужна, чтобы HomeScreen корректно реагировал
     // на изменения глобального состояния (например, валюты)
     context.watch<GameState>();
+    final colors = AppColors.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF435B70),
+      backgroundColor: colors.background,
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
@@ -103,12 +105,13 @@ class _BottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       height: 78,
       decoration: BoxDecoration(
-        color: const Color(0xFF131E22),
-        border: const Border(
-          top: BorderSide(color: Color(0xFF37464F), width: 1.5),
+        color: colors.surface,
+        border: Border(
+          top: BorderSide(color: colors.track, width: 1.5),
         ),
         boxShadow: [
           BoxShadow(
@@ -171,6 +174,7 @@ class _BottomNavItemState extends State<_BottomNavItem> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
@@ -180,10 +184,10 @@ class _BottomNavItemState extends State<_BottomNavItem> {
         transform: Matrix4.translationValues(0, _isPressed ? 4 : 0, 0),
         margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF131F24),
+          color: colors.surfaceAlt,
           borderRadius: BorderRadius.circular(8),
           border: widget.isActive
-              ? Border.all(color: const Color(0xFF3C85A7), width: 2)
+              ? Border.all(color: colors.accent, width: 2)
               : null,
         ),
         child: Center(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart'; // для currentBackground
 import '../data/game_state.dart';
+import '../theme/app_theme.dart';
 
 class ShopScreen extends StatelessWidget {
   const ShopScreen({super.key});
@@ -32,6 +33,7 @@ class ShopScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<GameState>();
+    final colors = AppColors.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -51,14 +53,14 @@ class ShopScreen extends StatelessWidget {
     final coinFontSize = screenWidth * 0.04; // 4% от ширины экрана
 
     return Scaffold(
-      backgroundColor: const Color(0xFF131F24), // 🔹 Статичный фон
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Адаптивный AppBar
             Container(
               height: 56,
-              color: const Color(0xFF131F24),
+              color: colors.background,
               padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -71,7 +73,7 @@ class ShopScreen extends StatelessWidget {
                           fontFamily: 'ClashRoyale',
                           fontSize: titleFontSize.clamp(16, 22),
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
@@ -90,7 +92,7 @@ class ShopScreen extends StatelessWidget {
                           fontFamily: 'ClashRoyale',
                           fontSize: coinFontSize.clamp(14, 18),
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ],
@@ -101,7 +103,7 @@ class ShopScreen extends StatelessWidget {
             
             // Разделительная линия
             Container(
-              color: const Color(0xFF2A3A42),
+              color: colors.border,
               height: 1.0,
             ),
             
@@ -156,6 +158,7 @@ class ShopScreen extends StatelessWidget {
     double titleFontSize,
   ) {
     final state = context.read<GameState>();
+    final colors = AppColors.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -169,7 +172,7 @@ class ShopScreen extends StatelessWidget {
               fontFamily: 'ClashRoyale',
               fontSize: titleFontSize.clamp(16, 20),
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -183,7 +186,7 @@ class ShopScreen extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'ClashRoyale',
                 fontSize: screenWidth * 0.04,
-                color: Colors.white70,
+                color: colors.textSecondary,
               ),
             ),
           )
@@ -232,9 +235,10 @@ class ShopScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontFamily: 'ClashRoyale',
                                   fontSize: screenWidth * 0.035,
-                                  color: Colors.white,
+                                  color: colors.textPrimary,
                                 ),
                               ),
+                              backgroundColor: colors.surface,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -246,9 +250,10 @@ class ShopScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontFamily: 'ClashRoyale',
                                   fontSize: screenWidth * 0.035,
-                                  color: Colors.white,
+                                  color: colors.textPrimary,
                                 ),
                               ),
+                              backgroundColor: colors.surface,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -259,7 +264,7 @@ class ShopScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? Colors.amber : const Color(0xFF37464F),
+                          color: isSelected ? Colors.amber : colors.track,
                           width: isSelected ? 2.5 : 1.5,
                         ),
                         boxShadow: [
@@ -298,9 +303,9 @@ class ShopScreen extends StatelessWidget {
                                     child: Icon(
                                       Icons.lock,
                                       color: Colors.white70,
-                                      size: screenWidth * 0.06, // Адаптивный размер иконки
-                                    ),
-                                  )
+                                  size: screenWidth * 0.06, // Адаптивный размер иконки
+                                ),
+                              )
                                 : isSelected
                                 ? Container(
                                     decoration: BoxDecoration(
@@ -328,7 +333,7 @@ class ShopScreen extends StatelessWidget {
                                 horizontal: actualItemSize * 0.04,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.4),
+                                color: colors.surfaceAlt,
                                 borderRadius: const BorderRadius.only(
                                   bottomLeft: Radius.circular(10),
                                   bottomRight: Radius.circular(10),
@@ -346,7 +351,7 @@ class ShopScreen extends StatelessWidget {
                                         fontSize: screenWidth * 0.025,
                                         color: isSelected
                                             ? Colors.amber
-                                            : Colors.white70,
+                                            : colors.textSecondary,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       textAlign: TextAlign.center,
@@ -364,7 +369,7 @@ class ShopScreen extends StatelessWidget {
                                               style: TextStyle(
                                                 fontFamily: 'ClashRoyale',
                                                 fontSize: screenWidth * 0.03,
-                                                color: Colors.white,
+                                                color: colors.textPrimary,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                               maxLines: 1,
@@ -386,7 +391,7 @@ class ShopScreen extends StatelessWidget {
                                           borderRadius: BorderRadius.circular(4),
                                           child: LinearProgressIndicator(
                                             value: progress,
-                                            backgroundColor: const Color(0xFF37464F),
+                                            backgroundColor: colors.track,
                                             color: const Color(0xFF58A700),
                                             minHeight: screenWidth * 0.015,
                                           ),
