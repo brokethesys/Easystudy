@@ -1,54 +1,37 @@
-# EasyStudy 🎓
+# EasyStudy
 
-**EasyStudy** is a mobile educational application built with **Flutter**, designed around a ticket-based learning system with multiple subquestions.  
-The experience is inspired by game mechanics similar to Duolingo, focusing on progression, feedback, and retention.
+EasyStudy — приложение для подготовки по билетам в игровой форме. Проходите уровни, отвечайте на вопросы, копите опыт и монеты, открывайте новые билеты и элементы оформления.
 
-The app guides users through levels sequentially, tracks progress, and reinforces learning by revisiting mistakes.
+## Для кого
+- Студенты и школьники, которые готовятся по билетам.
+- Те, кто хочет учиться небольшими шагами с видимым прогрессом.
 
----
+## Что внутри
+- Карта уровней с поэтапным открытием билетов.
+- Прогресс по каждому билету и предмету.
+- Награды за прохождение (опыт, монеты).
+- Магазин кастомизации (фоны, рамки, аватары).
+- Достижения.
+- Настройки звука, музыки, вибрации и темы.
+- Опциональная синхронизация прогресса через аккаунт.
 
-## 🚀 Features
+## Как пользоваться
+1. Откройте приложение и выберите предмет.
+2. На карте уровней выберите доступный билет.
+3. Проходите вопросы и повышайте уровень.
+4. Получайте награды и открывайте новые билеты.
+5. В разделе настроек настройте звук, музыку и тему.
+6. При желании войдите в аккаунт, чтобы синхронизировать прогресс.
 
-### 🗺 Level Map
-- Sequential level unlocking
-- A level (ticket) can only be started after the previous one is completed
-- Visual progression on an interactive map
+## Платформы
+Приложение написано на Flutter и работает на:
+- Android
+- iOS
+- Web
+- Desktop (macOS, Windows, Linux)
 
-### 🎫 Ticket System
-- 1 ticket = multiple subquestions
-- Supports single-choice and multiple-choice questions
-- Automatic progress saving
+## Конфиденциальность
+EasyStudy хранит прогресс и настройки локально на устройстве. При включении синхронизации данные сохраняются на сервере как конфигурация пользователя. Подробности см. в `privacy.md`.
 
-### ❌ Smart Mistake Handling
-- First wrong attempt → retry without explanation
-- Second wrong attempt → explanation is shown
-- Unsolved questions are stored separately for later review
-
-### 📊 Progress Bar
-- Fills from left to right
-- Smooth animations with haptic feedback
-- Consistent visual style across screens
-
-### ⚙️ Full-Screen Settings
-- Sound / music / vibration toggles
-- Background music volume control
-- Reset progress
-- Custom-designed switches
-
-### 🎮 Game Elements
-- XP system and player level
-- Coins
-- Haptic feedback and animations (Duolingo-like UX)
-
----
-
-## 🛠 Tech Stack
-
-- **Flutter**
-- **Dart**
-- **Provider** — state management
-- **Custom animations**
-- **Haptic Feedback**
-- **Material UI (heavily customized)**
-
----
+## Обратная связь
+Если нашли ошибку или хотите предложить улучшение, напишите разработчику удобным способом.
