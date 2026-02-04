@@ -1,4 +1,4 @@
-# dickink
+# easystudy
 
 A new Flutter project.
 
