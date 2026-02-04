@@ -43,3 +43,53 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle
+.gradle/
+**/build/
+**/out/
+
+# Android local config
+android/local.properties
+android/key.properties
+android/app/google-services.json
+**/*.keystore
+**/*.jks
+**/*.p12
+
+# iOS/Xcode
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/.symlinks/
+ios/DerivedData/
+**/*.xcuserstate
+**/*.xcuserdatad
+
+# macOS
+macos/Flutter/ephemeral/
+macos/Pods/
+macos/GeneratedPluginRegistrant.swift
+
+# Windows
+windows/flutter/ephemeral/
+windows/runner/GeneratedPluginRegistrant.swift
+
+# Linux
+linux/flutter/ephemeral/
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugin_registrant.cmake
+
+# Web
+web/.dart_tool/
+web/build/
+
+# Flutter version manager
+.fvm/
+
+# Env files
+.env
+.env.*
