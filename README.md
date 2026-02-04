@@ -1,6 +1,6 @@
 # EasyStudy 🎓
 
-**EduQuiz** is a mobile educational application built with **Flutter**, designed around a ticket-based learning system with multiple subquestions.  
+**EasyStudy** is a mobile educational application built with **Flutter**, designed around a ticket-based learning system with multiple subquestions.  
 The experience is inspired by game mechanics similar to Duolingo, focusing on progression, feedback, and retention.
 
 The app guides users through levels sequentially, tracks progress, and reinforces learning by revisiting mistakes.
