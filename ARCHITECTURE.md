@@ -1,3 +1,4 @@
+<img width="1873" height="1598" alt="ARCHITECTURE" src="https://github.com/user-attachments/assets/0471c441-fa8f-46e0-af9c-9f32ac728805" />
 # Архитектурная документация EasyStudy
 
 Дата: 2026-02-04
