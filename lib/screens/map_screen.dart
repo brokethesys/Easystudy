@@ -3,9 +3,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/settings_panel.dart';
 import '../widgets/top_hud.dart';
 import 'quiz_screen.dart';
 
@@ -27,6 +29,7 @@ class _MapScreenState extends State<MapScreen>
   static const double _stepY = 120;
   static const double _topPadding = 120;
   static const double _bottomPadding = 140;
+  static const String _accountPromptShownKey = 'account_prompt_level1_shown';
 
   /* =======================
      CONTROLLERS
@@ -38,6 +41,7 @@ class _MapScreenState extends State<MapScreen>
 
   double _lastXpRatio = 0;
   final Map<int, int> _ticketQuestionCounts = {};
+  bool _accountPromptScheduled = false;
 
   /* =======================
      LIFECYCLE
@@ -129,6 +133,7 @@ class _MapScreenState extends State<MapScreen>
     final state = context.watch<GameState>();
     final colors = AppColors.of(context);
     _updateXp(state);
+    _scheduleAccountPrompt(state);
 
     final size = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
@@ -240,6 +245,86 @@ class _MapScreenState extends State<MapScreen>
         ),
       );
     });
+  }
+
+  void _scheduleAccountPrompt(GameState state) {
+    if (_accountPromptScheduled) return;
+    final completed =
+        state.completedLevels[state.currentSubject]?.contains(1) ?? false;
+    if (!completed) return;
+    _accountPromptScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        _maybeShowAccountPrompt(context);
+      }
+    });
+  }
+
+  Future<void> _maybeShowAccountPrompt(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyShown = prefs.getBool(_accountPromptShownKey) ?? false;
+    if (alreadyShown) return;
+    await prefs.setBool(_accountPromptShownKey, true);
+    if (!context.mounted) return;
+    await _showAccountPromptDialog(context);
+  }
+
+  Future<void> _showAccountPromptDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF131F24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Синхронизировать прогресс?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Создайте аккаунт, чтобы продолжать с любого устройства.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 15,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'ПОЗЖЕ',
+                style: TextStyle(
+                  color: Color(0xFF49C0F7),
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await SettingsPanel.openAccountDialog(context);
+              },
+              child: const Text(
+                'ВОЙТИ / РЕГИСТРАЦИЯ',
+                style: TextStyle(
+                  color: Colors.orangeAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

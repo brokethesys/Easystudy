@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import '../data/account_service.dart';
+import '../data/backend_client.dart';
 import '../data/game_state.dart';
 import '../audio/audio_manager.dart';
 import '../theme/app_theme.dart';
+import '../widgets/settings_panel.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -141,6 +144,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.support_agent,
                 color: colors.accent,
                 onTap: () => _showSupportMessage(context),
+              ),
+
+              const SizedBox(height: 24),
+              _sectionHeader(text: "АККАУНТ", colors: colors),
+              const SizedBox(height: 12),
+              _actionButton(
+                label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
+                icon: Icons.person,
+                color: colors.accent,
+                onTap: () => SettingsPanel.openAccountDialog(context),
+              ),
+              const SizedBox(height: 12),
+              _actionButton(
+                label: 'СИНХРОНИЗИРОВАТЬ',
+                icon: Icons.sync,
+                color: const Color(0xFF4CAF50),
+                onTap: () => _syncNow(context),
               ),
 
               const SizedBox(height: 20),
@@ -383,5 +403,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('telegram username: @yaivanov 💬')),
     );
+  }
+
+  Future<void> _syncNow(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final account = AccountService();
+    final state = context.read<GameState>();
+
+    try {
+      await account.syncUp(state);
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          'Сохранения синхронизированы',
+          Icons.cloud_done,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          _friendlyError(e),
+          Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  void _showSnackBar(BuildContext context, String message, IconData icon) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1899D5),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _friendlyError(Object error) {
+    if (error is AuthRequiredException) {
+      return 'Сначала выполните вход';
+    }
+    if (error is BackendException) {
+      return error.message;
+    }
+    return 'Не удалось связаться с сервером';
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import '../data/account_service.dart';
+import '../data/backend_client.dart';
 import '../data/game_state.dart';
 import '../audio/audio_manager.dart';
 
@@ -173,6 +175,28 @@ class SettingsPanel {
                                 icon: Icons.support_agent,
                                 color: const Color(0xFF29B6F6),
                                 onTap: () => _showSupportMessage(context),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Раздел Аккаунт
+                              _sectionHeader(text: "АККАУНТ"),
+                              const SizedBox(height: 12),
+
+                              _actionButton(
+                                label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
+                                icon: Icons.person,
+                                color: const Color(0xFF49C0F7),
+                                onTap: () => _showAccountDialog(context, state),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              _actionButton(
+                                label: 'СИНХРОНИЗИРОВАТЬ',
+                                icon: Icons.sync,
+                                color: const Color(0xFF4CAF50),
+                                onTap: () => _syncNow(context, state),
                               ),
 
                               const SizedBox(height: 20),
@@ -447,6 +471,267 @@ class SettingsPanel {
         ],
       ),
     );
+  }
+
+  static Future<void> openAccountDialog(BuildContext context) {
+    final state = context.read<GameState>();
+    return _showAccountDialog(context, state);
+  }
+
+  static Future<void> syncNow(BuildContext context) {
+    final state = context.read<GameState>();
+    return _syncNow(context, state);
+  }
+
+  static Future<void> _showAccountDialog(
+      BuildContext context, GameState state) async {
+    HapticFeedback.lightImpact();
+
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    final account = AccountService();
+
+    bool isLoading = false;
+    String? errorText;
+    bool? signedIn;
+    bool checkedStatus = false;
+
+    Future<void> handleLogin() async {
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+      if (email.isEmpty || password.isEmpty) {
+        errorText = 'Введите email и пароль';
+        return;
+      }
+      try {
+        errorText = null;
+        final result = await account.login(
+          state: state,
+          email: email,
+          password: password,
+        );
+        if (context.mounted) {
+          Navigator.pop(context);
+          _showSnackBar(
+            context,
+            result.configApplied
+                ? 'Прогресс загружен и применен'
+                : 'Вход выполнен',
+            Icons.check_circle,
+          );
+        }
+      } catch (e) {
+        errorText = _friendlyError(e);
+      }
+    }
+
+    Future<void> handleRegister() async {
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+      if (email.isEmpty || password.isEmpty) {
+        errorText = 'Введите email и пароль';
+        return;
+      }
+      try {
+        errorText = null;
+        await account.register(
+          state: state,
+          email: email,
+          password: password,
+        );
+        if (context.mounted) {
+          Navigator.pop(context);
+          _showSnackBar(
+            context,
+            'Регистрация завершена',
+            Icons.check_circle,
+          );
+        }
+      } catch (e) {
+        errorText = _friendlyError(e);
+      }
+    }
+
+    Future<void> handleSignOut() async {
+      await account.signOut();
+      if (context.mounted) {
+        Navigator.pop(context);
+        _showSnackBar(
+          context,
+          'Вы вышли из аккаунта',
+          Icons.logout,
+        );
+      }
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            if (!checkedStatus) {
+              checkedStatus = true;
+              account.isSignedIn().then((value) {
+                if (context.mounted) {
+                  setLocalState(() => signedIn = value);
+                }
+              });
+            }
+
+            Future<void> wrap(Future<void> Function() action) async {
+              setLocalState(() {
+                isLoading = true;
+                errorText = null;
+              });
+              await action();
+              if (context.mounted) {
+                setLocalState(() => isLoading = false);
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF131F24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Аккаунт',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _inputField(
+                    controller: emailController,
+                    label: 'Email',
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  _inputField(
+                    controller: passwordController,
+                    label: 'Пароль',
+                    obscureText: true,
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorText!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                if (signedIn == true)
+                  TextButton(
+                    onPressed: isLoading ? null : () => wrap(handleSignOut),
+                    child: const Text(
+                      'ВЫЙТИ',
+                      style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                TextButton(
+                  onPressed: isLoading ? null : () => wrap(handleLogin),
+                  child: const Text(
+                    'ВОЙТИ',
+                    style: TextStyle(
+                      color: Color(0xFF49C0F7),
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: isLoading ? null : () => wrap(handleRegister),
+                  child: const Text(
+                    'РЕГИСТРАЦИЯ',
+                    style: TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static Future<void> _syncNow(BuildContext context, GameState state) async {
+    HapticFeedback.lightImpact();
+    final account = AccountService();
+
+    try {
+      await account.syncUp(state);
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          'Сохранения синхронизированы',
+          Icons.cloud_done,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          _friendlyError(e),
+          Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  static Widget _inputField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType? keyboardType,
+    bool obscureText = false,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70),
+        filled: true,
+        fillColor: const Color(0xFF1A2A34),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF49C0F7)),
+        ),
+      ),
+    );
+  }
+
+  static String _friendlyError(Object error) {
+    if (error is AuthRequiredException) {
+      return 'Сначала выполните вход';
+    }
+    if (error is BackendException) {
+      return error.message;
+    }
+    return 'Не удалось связаться с сервером';
   }
 
   static Future<void> _confirmResetProgress(

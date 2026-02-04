@@ -14,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.broketheframe.easystudy"
+    namespace = "com.yourcompany.easystudy"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.broketheframe.easystudy"
+        applicationId = "com.yourcompany.easystudy"
 
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
