@@ -47,11 +47,8 @@ class AudioManager {
 
   /// Карта всех звуковых эффектов
   static final Map<String, AssetSource> _soundEffects = {
-    'tap': AssetSource('audio/sounds/tap.mp3'),
-    'correct': AssetSource('audio/sounds/correct.mp3'),
-    'wrong': AssetSource('audio/sounds/wrong.mp3'),
-    'win': AssetSource('audio/sounds/win.mp3'),
-    'level_up': AssetSource('audio/sounds/level_up.mp3'),
+    'tap': AssetSource('audio/app_interface_click.mp3'),
+    'swipe': AssetSource('audio/swipe.mp3'),
   };
 
   /* =======================
@@ -152,10 +149,7 @@ class AudioManager {
      ======================= */
 
   Future<void> playTapSound() => playSound('tap');
-  Future<void> playCorrectSound() => playSound('correct');
-  Future<void> playWrongSound() => playSound('wrong');
-  Future<void> playWinSound() => playSound('win');
-  Future<void> playLevelUpSound() => playSound('level_up');
+  Future<void> playSwipeSound() => playSound('swipe');
 
   /* =======================
      LIFECYCLE

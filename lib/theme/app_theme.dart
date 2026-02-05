@@ -71,7 +71,7 @@ class AppColors extends ThemeExtension<AppColors> {
 }
 
 class AppTheme {
-  static const Color darkBase = Color(0xFF121F25);
+  static const Color darkBase = Color(0xFF131F24);
   static const Color darkAccent = Color(0xFF49C0F7);
 
   static ThemeData light() {

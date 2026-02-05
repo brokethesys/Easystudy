@@ -241,6 +241,11 @@ class SettingsPanel {
     required ValueChanged<bool> onChanged,
     required IconData icon,
   }) {
+    void handleChanged(bool nextValue) {
+      AudioManager().playTapSound();
+      onChanged(nextValue);
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -250,7 +255,7 @@ class SettingsPanel {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => onChanged(!value),
+          onTap: () => handleChanged(!value),
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16),
@@ -283,7 +288,7 @@ class SettingsPanel {
                 const SizedBox(width: 8),
                 Switch(
                   value: value,
-                  onChanged: onChanged,
+                  onChanged: handleChanged,
                   activeColor: const Color(0xFF49C0F7),
                   activeTrackColor: const Color(0xFF49C0F7).withOpacity(0.5),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -412,7 +417,10 @@ class SettingsPanel {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            AudioManager().playTapSound();
+            onTap();
+          },
           borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),

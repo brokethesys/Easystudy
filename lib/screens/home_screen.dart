@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../audio/audio_manager.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
 import 'achievements_screen.dart';
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   int _currentPage = _initialPage;
+  bool _isUserSwipe = false;
 
   /* =======================
      LIFECYCLE
@@ -49,6 +51,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onPageChanged(int index) {
     setState(() => _currentPage = index);
+    if (_isUserSwipe) {
+      AudioManager().playSwipeSound();
+    }
   }
 
   void _navigateToPage(int index) {
@@ -74,10 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: colors.background,
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        children: const [ShopScreen(), MapScreen(), AchievementsScreen()],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _isUserSwipe = true;
+          } else if (notification is ScrollEndNotification) {
+            _isUserSwipe = false;
+          }
+          return false;
+        },
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          children: const [ShopScreen(), MapScreen(), AchievementsScreen()],
+        ),
       ),
       bottomNavigationBar: _BottomNavigationBar(
         currentIndex: _currentPage,
@@ -109,7 +125,7 @@ class _BottomNavigationBar extends StatelessWidget {
     return Container(
       height: 78,
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.background,
         border: Border(
           top: BorderSide(color: colors.track, width: 1.5),
         ),
@@ -179,19 +195,23 @@ class _BottomNavItemState extends State<_BottomNavItem> {
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        transform: Matrix4.translationValues(0, _isPressed ? 4 : 0, 0),
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colors.surfaceAlt,
-          borderRadius: BorderRadius.circular(8),
-          border: widget.isActive
-              ? Border.all(color: colors.accent, width: 2)
-              : null,
-        ),
-        child: Center(
-          child: Image.asset(widget.iconPath, width: 40, height: 40),
+      child: Center(
+        child: AnimatedContainer(
+          width: 56,
+          height: 56,
+          duration: const Duration(milliseconds: 100),
+          transform: Matrix4.translationValues(0, _isPressed ? 4 : 0, 0),
+          margin: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colors.surfaceAlt,
+            borderRadius: BorderRadius.circular(8),
+            border: widget.isActive
+                ? Border.all(color: colors.accent, width: 2)
+                : null,
+          ),
+          child: Center(
+            child: Image.asset(widget.iconPath, width: 32, height: 32),
+          ),
         ),
       ),
     );

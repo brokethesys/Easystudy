@@ -4,9 +4,17 @@ import 'package:provider/provider.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
 import '../screens/settings_screen.dart'; // Импорт нового экрана настроек
+import '../widgets/subject_menu.dart';
 
-class TopHUD extends StatelessWidget {
+class TopHUD extends StatefulWidget {
   const TopHUD({super.key});
+
+  @override
+  State<TopHUD> createState() => _TopHUDState();
+}
+
+class _TopHUDState extends State<TopHUD> {
+  bool _isMenuOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -22,88 +30,121 @@ class TopHUD extends StatelessWidget {
       top: topPadding,
       left: 0,
       right: 0,
-      child: Container(
-        color: backgroundColor,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SizedBox(
-            height: 48 + widgetHeight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Круг опыта с уровнем
-                CustomPaint(
-                  painter: _LevelCirclePainter(
-                    progress: state.xpRatio,
-                    circleColor: switchColor,
-                    backgroundColor: const Color(0xFF073E57),
-                  ),
-                  child: SizedBox(
-                    width: widgetHeight,
-                    height: widgetHeight,
-                    child: Center(
-                      child: Text(
-                        '${state.playerLevel}',
-                        style: TextStyle(
-                          fontFamily: 'ClashRoyale',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colors.textPrimary,
+      child: Builder(
+        builder: (hudContext) {
+          return Container(
+            color: backgroundColor,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                height: 48 + widgetHeight,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Круг опыта с уровнем
+                    CustomPaint(
+                      painter: _LevelCirclePainter(
+                        progress: state.xpRatio,
+                        circleColor: switchColor,
+                        backgroundColor: const Color(0xFF073E57),
+                      ),
+                      child: SizedBox(
+                        width: widgetHeight,
+                        height: widgetHeight,
+                        child: Center(
+                          child: Text(
+                            '${state.playerLevel}',
+                            style: TextStyle(
+                              fontFamily: 'ClashRoyale',
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: colors.textPrimary,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
 
-                // Статичный предмет (например, математика)
-                SizedBox(
-                  width: widgetHeight,
-                  height: widgetHeight,
-                  child: Image.asset('assets/images/software-application.png'),
-                ),
+                    // Предмет (с разворачиваемым меню)
+                    GestureDetector(
+                      onTap: () async {
+                        if (_isMenuOpen) return;
+                        setState(() => _isMenuOpen = true);
+                        await SubjectMenu.show(
+                          context,
+                          hudContext: hudContext,
+                        );
+                        if (!mounted) return;
+                        setState(() => _isMenuOpen = false);
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: widgetHeight,
+                            height: widgetHeight,
+                            child: Image.asset(
+                              'assets/images/software-application.png',
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _isMenuOpen
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: colors.textPrimary,
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ),
 
-                // Монеты
-                Row(
-                  children: [
+                    // Монеты
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: widgetHeight,
+                          height: widgetHeight,
+                          child: Image.asset('assets/images/coin.png'),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          state.coins.toString(),
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Настройки (открытие отдельного экрана)
                     SizedBox(
                       width: widgetHeight,
                       height: widgetHeight,
-                      child: Image.asset('assets/images/coin.png'),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      state.coins.toString(),
-                      style: const TextStyle(
-                        fontFamily: 'ClashRoyale',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                        color: Colors.amber,
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.settings,
+                          color: Colors.orangeAccent,
+                          size: widgetHeight,
+                        ),
                       ),
                     ),
                   ],
                 ),
-
-                // Настройки (открытие отдельного экрана)
-                SizedBox(
-                  width: widgetHeight,
-                  height: widgetHeight,
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                    ),
-                    child: Icon(
-                      Icons.settings,
-                      color: Colors.orangeAccent,
-                      size: widgetHeight,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
