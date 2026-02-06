@@ -30,6 +30,7 @@ class _MapScreenState extends State<MapScreen>
   static const double _topPadding = 120;
   static const double _bottomPadding = 140;
   static const String _accountPromptShownKey = 'account_prompt_level1_shown';
+  static const String _mainGuideShownKey = 'main_screen_guide_shown';
 
   /* =======================
      CONTROLLERS
@@ -61,6 +62,7 @@ class _MapScreenState extends State<MapScreen>
 
     _xpAnimation = const AlwaysStoppedAnimation(0);
   }
+
 
   @override
   void dispose() {

@@ -21,15 +21,13 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
 
-  late AnimationController _buttonController;
-  late Animation<double> _buttonScale;
-
   int correctAnswers = 0;
   int totalSubquestions = 1;
 
   bool startedLearning = false;
   int lastSubquestionIndex = 0;
   bool theoryExpanded = false;
+  bool _isActionPressed = false;
 
   static const double actionButtonHeight = 50;
   static const double actionButtonBottom = 54;
@@ -53,23 +51,12 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 500),
     );
 
-    _buttonController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 120),
-      lowerBound: 0.95,
-      upperBound: 1.0,
-      value: 1.0,
-    );
-
-    _buttonScale = _buttonController;
-
     loadTicket();
   }
 
   @override
   void dispose() {
     _progressController.dispose();
-    _buttonController.dispose();
     super.dispose();
   }
 
@@ -252,31 +239,54 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
   Widget _buildActionButton(AppColors colors) {
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final greenColor =
+        isDark ? const Color(0xFF92D333) : const Color(0xFF59CB0B);
+    final greenLineColor =
+        isDark ? const Color(0xFF729462) : const Color(0xFF6F9A4A);
+    final textColor = isUnlocked
+        ? (isDark ? const Color(0xFF101E27) : Colors.white)
+        : colors.textSecondary;
+    final pressOffset = isUnlocked && _isActionPressed ? 4.0 : 0.0;
+    final showLine = isUnlocked && !_isActionPressed;
 
     return GestureDetector(
-      onTapDown: (_) => _buttonController.reverse(),
-      onTapUp: (_) => _buttonController.forward(),
-      onTapCancel: () => _buttonController.forward(),
+      onTapDown: isUnlocked
+          ? (_) => setState(() => _isActionPressed = true)
+          : null,
+      onTapUp: isUnlocked
+          ? (_) => setState(() => _isActionPressed = false)
+          : null,
+      onTapCancel:
+          isUnlocked ? () => setState(() => _isActionPressed = false) : null,
       onTap: isUnlocked ? _startLearning : null,
-      child: ScaleTransition(
-        scale: _buttonScale,
-        child: Container(
-          height: actionButtonHeight,
-          decoration: BoxDecoration(
-            color: isUnlocked ? const Color(0xFF92D331) : Colors.grey,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            !isUnlocked
-                ? 'ЗАБЛОКИРОВАНО'
-                : (startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ'),
-            style: TextStyle(
-              fontFamily: 'ClashRoyale',
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: isUnlocked ? const Color(0xFF101E27) : colors.textSecondary,
-            ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        curve: Curves.easeOut,
+        transform: Matrix4.translationValues(0, pressOffset, 0),
+        height: actionButtonHeight,
+        decoration: BoxDecoration(
+          color: isUnlocked ? greenColor : Colors.grey,
+          borderRadius: BorderRadius.circular(14),
+          border: showLine
+              ? Border(
+                  bottom: BorderSide(
+                    color: greenLineColor,
+                    width: 4,
+                  ),
+                )
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          !isUnlocked
+              ? 'ЗАБЛОКИРОВАНО'
+              : (startedLearning ? 'ПРОДОЛЖИТЬ УЧИТЬ' : 'НАЧАТЬ УЧИТЬ'),
+          style: TextStyle(
+            fontFamily: 'ClashRoyale',
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: textColor,
           ),
         ),
       ),

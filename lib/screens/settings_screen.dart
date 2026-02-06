@@ -4,9 +4,10 @@ import 'package:flutter/services.dart';
 import '../data/account_service.dart';
 import '../data/backend_client.dart';
 import '../data/game_state.dart';
-import '../audio/audio_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/settings_panel.dart';
+import '../widgets/themed_action_button.dart';
+import '../widgets/themed_blue_button.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -113,6 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _sectionHeader(text: "ТЕМА", colors: colors),
               const SizedBox(height: 12),
               _themeModeSelector(
+                context: context,
                 current: localThemeMode,
                 colors: colors,
                 onChanged: (mode) {
@@ -140,9 +142,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 24),
               // ================= Поддержка =================
               _actionButton(
+                context: context,
                 label: 'ПОДДЕРЖКА',
                 icon: Icons.support_agent,
-                color: colors.accent,
+                variant: ThemedActionButtonVariant.blue,
                 onTap: () => _showSupportMessage(context),
               ),
 
@@ -150,16 +153,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _sectionHeader(text: "АККАУНТ", colors: colors),
               const SizedBox(height: 12),
               _actionButton(
+                context: context,
                 label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
                 icon: Icons.person,
-                color: colors.accent,
+                variant: ThemedActionButtonVariant.blue,
                 onTap: () => SettingsPanel.openAccountDialog(context),
               ),
               const SizedBox(height: 12),
               _actionButton(
+                context: context,
                 label: 'СИНХРОНИЗИРОВАТЬ',
                 icon: Icons.sync,
-                color: const Color(0xFF4CAF50),
+                variant: ThemedActionButtonVariant.green,
                 onTap: () => _syncNow(context),
               ),
 
@@ -299,44 +304,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   static Widget _actionButton({
+    required BuildContext context,
     required String label,
     required IconData icon,
-    required Color color,
     required VoidCallback onTap,
+    Color? color,
+    ThemedActionButtonVariant variant = ThemedActionButtonVariant.custom,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Material(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: Colors.white, size: 22),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    if (variant == ThemedActionButtonVariant.blue) {
+      return ThemedBlueButton(
+        label: label,
+        icon: icon,
+        onTap: onTap,
+      );
+    }
+
+    return ThemedActionButton(
+      label: label,
+      icon: icon,
+      onTap: onTap,
+      color: color,
+      variant: variant,
     );
   }
+
+  static Color _blueButtonTextColor(BuildContext context, Color buttonColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isBlue = buttonColor.value == 0xFF49C0F7 ||
+        buttonColor.value == 0xFF29B6F6 ||
+        buttonColor.value == AppTheme.darkAccent.value;
+    if (isDark && isBlue) {
+      return const Color(0xFF102124);
+    }
+    return Colors.white;
+  }
+
 
   static Widget _buildVersionInfo(AppColors colors) {
     return Container(
@@ -358,12 +360,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   static Widget _themeModeSelector({
+    required BuildContext context,
     required AppThemeMode current,
     required AppColors colors,
     required ValueChanged<AppThemeMode> onChanged,
   }) {
     Widget buildOption(AppThemeMode mode, String label) {
       final bool isSelected = current == mode;
+      final Color selectedText =
+          _blueButtonTextColor(context, colors.accent);
       return Expanded(
         child: GestureDetector(
           onTap: () => onChanged(mode),
@@ -380,7 +385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : colors.textPrimary,
+                color: isSelected ? selectedText : colors.textPrimary,
               ),
             ),
           ),

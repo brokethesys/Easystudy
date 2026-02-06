@@ -5,6 +5,8 @@ import '../data/account_service.dart';
 import '../data/backend_client.dart';
 import '../data/game_state.dart';
 import '../audio/audio_manager.dart';
+import '../widgets/themed_action_button.dart';
+import '../widgets/themed_blue_button.dart';
 
 class SettingsPanel {
   static void open(BuildContext context) {
@@ -161,6 +163,7 @@ class SettingsPanel {
 
                               // Кнопка сброса прогресса
                               _actionButton(
+                                context: context,
                                 label: 'СБРОСИТЬ ПРОГРЕСС',
                                 icon: Icons.restart_alt,
                                 color: Colors.redAccent,
@@ -171,9 +174,10 @@ class SettingsPanel {
 
                               // Кнопка поддержки
                               _actionButton(
+                                context: context,
                                 label: 'ПОДДЕРЖКА',
                                 icon: Icons.support_agent,
-                                color: const Color(0xFF29B6F6),
+                                variant: ThemedActionButtonVariant.blue,
                                 onTap: () => _showSupportMessage(context),
                               ),
 
@@ -184,18 +188,20 @@ class SettingsPanel {
                               const SizedBox(height: 12),
 
                               _actionButton(
+                                context: context,
                                 label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
                                 icon: Icons.person,
-                                color: const Color(0xFF49C0F7),
+                                variant: ThemedActionButtonVariant.blue,
                                 onTap: () => _showAccountDialog(context, state),
                               ),
 
                               const SizedBox(height: 12),
 
                               _actionButton(
+                                context: context,
                                 label: 'СИНХРОНИЗИРОВАТЬ',
                                 icon: Icons.sync,
-                                color: const Color(0xFF4CAF50),
+                                variant: ThemedActionButtonVariant.green,
                                 onTap: () => _syncNow(context, state),
                               ),
 
@@ -396,64 +402,39 @@ class SettingsPanel {
   }
 
   static Widget _actionButton({
+    required BuildContext context,
     required String label,
     required IconData icon,
-    required Color color,
     required VoidCallback onTap,
+    Color? color,
+    ThemedActionButtonVariant variant = ThemedActionButtonVariant.custom,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
+    final shadows = [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.3),
+        blurRadius: 6,
+        offset: const Offset(0, 3),
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: () {
-            AudioManager().playTapSound();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 22,
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    ];
+
+    if (variant == ThemedActionButtonVariant.blue) {
+      return ThemedBlueButton(
+        label: label,
+        icon: icon,
+        onTap: onTap,
+        playTapSound: true,
+        boxShadow: shadows,
+      );
+    }
+
+    return ThemedActionButton(
+      label: label,
+      icon: icon,
+      onTap: onTap,
+      color: color,
+      variant: variant,
+      playTapSound: true,
+      boxShadow: shadows,
     );
   }
 
@@ -679,6 +660,7 @@ class SettingsPanel {
       },
     );
   }
+
 
   static Future<void> _syncNow(BuildContext context, GameState state) async {
     HapticFeedback.lightImpact();

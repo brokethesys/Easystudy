@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart'; // Подключи свой HomeScreen
+import '../widgets/themed_action_button.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -131,36 +132,26 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
                 const SizedBox(height: 48),
 
-                // Кнопка CTA с градиентом и тенью
-                GestureDetector(
+                // Кнопка CTA с эффектом "вдавливания"
+                ThemedActionButton.green(
+                  label: "Начать подготовку",
                   onTap: _goToHome,
-                  child: Container(
-                    width: 220,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF43A047), Color(0xFF8BC34A)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black38,
-                          offset: Offset(0, 6),
-                          blurRadius: 12,
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "Начать подготовку",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  width: 220,
+                  height: 56,
+                  borderRadius: 16,
+                  padding: EdgeInsets.zero,
+                  margin: EdgeInsets.zero,
+                  textStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black38,
+                      offset: Offset(0, 6),
+                      blurRadius: 12,
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -212,19 +212,23 @@ class _SubquestionScreenState extends State<SubquestionScreen>
 
   Map<String, dynamic> _getActionButtonConfig(bool isAlreadyAnswered,
       bool wasPreviousCorrect, int attempt) {
+    final greenColor = _greenButtonColor();
+    final greenLineColor = _greenButtonLineColor();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Color explanationColor = attempt == 1
         ? Colors.yellow.shade700
         : attempt == 2
             ? const Color(0xFFEE5654)
-            : const Color(0xFF92D333);
+            : greenColor;
 
     String text = 'ПРОВЕРИТЬ';
-    Color color = const Color(0xFF92D331);
+    Color color = greenColor;
     Color textColor = const Color(0xFF101E27);
+    Color? lineColor = greenLineColor;
 
     if (isAlreadyAnswered && wasPreviousCorrect && !showExplanation) {
       text = 'ПРОДОЛЖИТЬ';
-      color = const Color(0xFF92D333);
+      color = greenColor;
     } else if (showExplanation) {
       if (attempt == 3 || attempt == 2) {
         text = 'ПРОДОЛЖИТЬ';
@@ -236,8 +240,29 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     }
 
     if (attempt == 1) textColor = Colors.black;
+    if (!isDark && color == greenColor) {
+      textColor = Colors.white;
+    }
+    if (color != greenColor) {
+      lineColor = null;
+    }
 
-    return {'text': text, 'color': color, 'textColor': textColor};
+    return {
+      'text': text,
+      'color': color,
+      'textColor': textColor,
+      'lineColor': lineColor,
+    };
+  }
+
+  Color _greenButtonColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? const Color(0xFF92D333) : const Color(0xFF59CB0B);
+  }
+
+  Color _greenButtonLineColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? const Color(0xFF729462) : const Color(0xFF6F9A4A);
   }
 
   @override
@@ -276,7 +301,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
         ? Colors.yellow.shade700
         : attempt == 2
             ? const Color(0xFFEE5654)
-            : const Color(0xFF92D333);
+            : _greenButtonColor();
 
     final showExplanationText = attempt == 2 || attempt == 3;
     String explanationTitle = '';
@@ -510,6 +535,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
               text: btnConfig['text'],
               color: btnConfig['color'],
               textColor: btnConfig['textColor'],
+              lineColor: btnConfig['lineColor'],
               height: actionButtonHeight,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -539,6 +565,7 @@ class _ActionButton extends StatefulWidget {
   final Color color;
   final Color textColor;
   final double height;
+  final Color? lineColor;
   final VoidCallback onTap;
 
   const _ActionButton({
@@ -546,6 +573,7 @@ class _ActionButton extends StatefulWidget {
     required this.color,
     required this.textColor,
     required this.height,
+    this.lineColor,
     required this.onTap,
   });
 
@@ -554,28 +582,41 @@ class _ActionButton extends StatefulWidget {
 }
 
 class _ActionButtonState extends State<_ActionButton> {
-  double _scale = 1.0;
+  bool _isPressed = false;
 
-  void _onTapDown(TapDownDetails details) => setState(() => _scale = 0.95);
-  void _onTapUp(TapUpDetails details) => setState(() => _scale = 1.0);
-  void _onTapCancel() => setState(() => _scale = 1.0);
+  void _onTapDown(TapDownDetails details) =>
+      setState(() => _isPressed = true);
+  void _onTapUp(TapUpDetails details) =>
+      setState(() => _isPressed = false);
+  void _onTapCancel() => setState(() => _isPressed = false);
 
   @override
   Widget build(BuildContext context) {
+    final hasLine = widget.lineColor != null;
+    final pressOffset = hasLine && _isPressed ? 4.0 : 0.0;
+    final lineColor = _isPressed ? null : widget.lineColor;
     return GestureDetector(
       onTap: widget.onTap,
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
         curve: Curves.easeOut,
+        transform: Matrix4.translationValues(0, pressOffset, 0),
         child: Container(
           height: widget.height,
           decoration: BoxDecoration(
             color: widget.color,
             borderRadius: BorderRadius.circular(14),
+            border: lineColor == null
+                ? null
+                : Border(
+                    bottom: BorderSide(
+                      color: lineColor,
+                      width: 4,
+                    ),
+                  ),
           ),
           alignment: Alignment.center,
           child: Text(
