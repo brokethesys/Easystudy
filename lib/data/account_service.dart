@@ -1,25 +1,26 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import 'backend_client.dart';
 import 'game_state.dart';
 
 class AccountService {
-  AccountService({BackendClient? client}) : _client = client ?? BackendClient();
+  AccountService({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final BackendClient _client;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _firestore;
 
-  static const String _tokenKey = 'auth_token';
-  static const String _emailKey = 'auth_email';
+  static const String _usersCollection = 'users';
 
   Future<bool> isSignedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getString(_tokenKey) ?? '').isNotEmpty;
+    return _auth.currentUser != null;
   }
 
   Future<void> signOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_emailKey);
+    await _auth.signOut();
   }
 
   Future<AuthResult> register({
@@ -27,16 +28,22 @@ class AccountService {
     required String email,
     required String password,
   }) async {
-    final response = await _client.register(
+    final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
-      config: state.toConfigMap(),
     );
+    final user = credential.user;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-null',
+        message: 'User is null after registration',
+      );
+    }
 
-    await _storeToken(response.accessToken, email);
+    await _saveConfig(user.uid, state.toConfigMap());
 
     return AuthResult(
-      token: response.accessToken,
+      token: user.uid,
       configApplied: false,
     );
   }
@@ -46,48 +53,68 @@ class AccountService {
     required String email,
     required String password,
   }) async {
-    final response = await _client.login(email: email, password: password);
-    await _storeToken(response.accessToken, email);
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credential.user;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-null',
+        message: 'User is null after login',
+      );
+    }
 
     bool applied = false;
-    if (response.config != null) {
-      await state.applyConfigMap(response.config!);
+    final config = await _loadConfig(user.uid);
+    if (config != null) {
+      await state.applyConfigMap(config);
       applied = true;
     }
 
     return AuthResult(
-      token: response.accessToken,
+      token: user.uid,
       configApplied: applied,
     );
   }
 
   Future<void> syncUp(GameState state) async {
-    final token = await _getToken();
-    if (token == null) {
+    final user = _auth.currentUser;
+    if (user == null) {
       throw const AuthRequiredException();
     }
-    await _client.putConfig(token: token, config: state.toConfigMap());
+    await _saveConfig(user.uid, state.toConfigMap());
   }
 
   Future<bool> syncDown(GameState state) async {
-    final token = await _getToken();
-    if (token == null) {
+    final user = _auth.currentUser;
+    if (user == null) {
       throw const AuthRequiredException();
     }
-    final response = await _client.getConfig(token: token);
-    await state.applyConfigMap(response.config);
+    final config = await _loadConfig(user.uid);
+    if (config == null) return false;
+    await state.applyConfigMap(config);
     return true;
   }
 
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+  Future<Map<String, dynamic>?> _loadConfig(String uid) async {
+    final doc = await _firestore.collection(_usersCollection).doc(uid).get();
+    if (!doc.exists) return null;
+    final data = doc.data();
+    if (data == null) return null;
+    final config = data['config'];
+    return config is Map<String, dynamic> ? config : null;
   }
 
-  Future<void> _storeToken(String token, String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
-    await prefs.setString(_emailKey, email);
+  Future<void> _saveConfig(String uid, Map<String, dynamic> config) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+      {
+        'config': config,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'version': 1,
+      },
+      SetOptions(merge: true),
+    );
   }
 }
 

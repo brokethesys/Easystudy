@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../data/account_service.dart';
-import '../data/backend_client.dart';
 import '../data/game_state.dart';
 import '../audio/audio_manager.dart';
 import '../widgets/themed_action_button.dart';
@@ -484,6 +485,7 @@ class SettingsPanel {
     String? errorText;
     bool? signedIn;
     bool checkedStatus = false;
+    bool obscurePassword = true;
 
     Future<void> handleLogin() async {
       final email = emailController.text.trim();
@@ -579,7 +581,14 @@ class SettingsPanel {
               }
             }
 
+            final media = MediaQuery.of(context);
+            final isCompact = media.size.width < 360;
+
             return AlertDialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 12 : 24,
+                vertical: 24,
+              ),
               backgroundColor: const Color(0xFF131F24),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -592,64 +601,126 @@ class SettingsPanel {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _inputField(
-                    controller: emailController,
-                    label: 'Email',
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 12),
-                  _inputField(
-                    controller: passwordController,
-                    label: 'Пароль',
-                    obscureText: true,
-                  ),
-                  if (errorText != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorText!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                if (signedIn == true)
-                  TextButton(
-                    onPressed: isLoading ? null : () => wrap(handleSignOut),
-                    child: const Text(
-                      'ВЫЙТИ',
-                      style: TextStyle(
-                        color: Colors.orangeAccent,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                TextButton(
-                  onPressed: isLoading ? null : () => wrap(handleLogin),
-                  child: const Text(
-                    'ВОЙТИ',
-                    style: TextStyle(
-                      color: Color(0xFF49C0F7),
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: SingleChildScrollView(
+                  child: AutofillGroup(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _inputField(
+                          controller: emailController,
+                          label: 'Email',
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.email],
+                          enabled: !isLoading,
+                          onSubmitted: (_) =>
+                              FocusScope.of(context).nextFocus(),
+                        ),
+                        const SizedBox(height: 12),
+                        _inputField(
+                          controller: passwordController,
+                          label: 'Пароль',
+                          obscureText: obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          enabled: !isLoading,
+                          onSubmitted: (_) => wrap(handleLogin),
+                          suffixIcon: IconButton(
+                            tooltip: obscurePassword
+                                ? 'Показать пароль'
+                                : 'Скрыть пароль',
+                            onPressed: isLoading
+                                ? null
+                                : () => setLocalState(
+                                      () => obscurePassword = !obscurePassword,
+                                    ),
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (errorText != null)
+                          Text(
+                            errorText!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 13,
+                            ),
+                          )
+                        else
+                          const Text(
+                            'Данные синхронизируются автоматически при входе.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: isLoading ? null : () => wrap(handleRegister),
-                  child: const Text(
-                    'РЕГИСТРАЦИЯ',
-                    style: TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+              ),
+              actionsPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              actions: [
+                if (signedIn == true)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: isLoading ? null : () => wrap(handleSignOut),
+                      icon: const Icon(Icons.logout, size: 18),
+                      label: const Text('ВЫЙТИ'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orangeAccent,
+                        side: const BorderSide(color: Colors.orangeAccent),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : () => wrap(handleLogin),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF49C0F7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'ВОЙТИ',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: isLoading ? null : () => wrap(handleRegister),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.greenAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'СОЗДАТЬ АККАУНТ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -691,17 +762,27 @@ class SettingsPanel {
     required String label,
     TextInputType? keyboardType,
     bool obscureText = false,
+    bool enabled = true,
+    TextInputAction? textInputAction,
+    List<String>? autofillHints,
+    void Function(String)? onSubmitted,
+    Widget? suffixIcon,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      enabled: enabled,
+      textInputAction: textInputAction,
+      autofillHints: autofillHints,
+      onSubmitted: onSubmitted,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),
         filled: true,
         fillColor: const Color(0xFF1A2A34),
+        suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -718,8 +799,29 @@ class SettingsPanel {
     if (error is AuthRequiredException) {
       return 'Сначала выполните вход';
     }
-    if (error is BackendException) {
-      return error.message;
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'invalid-email':
+          return 'Некорректный email';
+        case 'user-disabled':
+          return 'Пользователь отключен';
+        case 'user-not-found':
+        case 'wrong-password':
+          return 'Неверный email или пароль';
+        case 'email-already-in-use':
+          return 'Email уже используется';
+        case 'weak-password':
+          return 'Слишком простой пароль';
+        case 'network-request-failed':
+          return 'Нет подключения к интернету';
+        case 'too-many-requests':
+          return 'Слишком много попыток, попробуйте позже';
+        default:
+          return error.message ?? 'Ошибка авторизации';
+      }
+    }
+    if (error is FirebaseException) {
+      return error.message ?? 'Ошибка синхронизации';
     }
     return 'Не удалось связаться с сервером';
   }

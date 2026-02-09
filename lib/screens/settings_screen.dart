@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../data/account_service.dart';
-import '../data/backend_client.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/settings_panel.dart';
@@ -467,8 +468,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (error is AuthRequiredException) {
       return 'Сначала выполните вход';
     }
-    if (error is BackendException) {
-      return error.message;
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'invalid-email':
+          return 'Некорректный email';
+        case 'user-disabled':
+          return 'Пользователь отключен';
+        case 'user-not-found':
+        case 'wrong-password':
+          return 'Неверный email или пароль';
+        case 'email-already-in-use':
+          return 'Email уже используется';
+        case 'weak-password':
+          return 'Слишком простой пароль';
+        case 'network-request-failed':
+          return 'Нет подключения к интернету';
+        case 'too-many-requests':
+          return 'Слишком много попыток, попробуйте позже';
+        default:
+          return error.message ?? 'Ошибка авторизации';
+      }
+    }
+    if (error is FirebaseException) {
+      return error.message ?? 'Ошибка синхронизации';
     }
     return 'Не удалось связаться с сервером';
   }
